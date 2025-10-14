@@ -76,8 +76,8 @@ const HeroSection = () => {
 
   // Part 1: Large text with buttons (full width text)
   const HeroTextSection = () => (
-    <section className="relative bg-gradient-to-b from-gray-900 to-gray-900 overflow-hidden py-20">
-      <div className="relative z-50 container mx-auto px-6">
+    <section className="relative bg-gradient-to-b from-gray-900 to-gray-900 overflow-hidden pt-24 pb-20"> {/* Added pt-24 to account for fixed header */}
+      <div className="relative z-0 container mx-auto px-6">
         <div className="max-w-full"> {/* Changed from max-w-6xl to max-w-full */}
           <h1 className="text-5xl md:text-6xl lg:text-7xl font-black leading-tight mb-6 tracking-tight text-wrap">
             <span className="text-gray-100">BUILDING A </span>
