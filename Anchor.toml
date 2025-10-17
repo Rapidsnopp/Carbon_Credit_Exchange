@@ -3,10 +3,10 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-carbon_credit_exchange = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+carbon_credit_exchange = "G1oyFNSMSHRBPG6LWWpAMhJJNf23HWjNpq8FALJSUqs3"
 
 [programs.devnet]
-carbon_credit_exchange = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+carbon_credit_exchange = "G1oyFNSMSHRBPG6LWWpAMhJJNf23HWjNpq8FALJSUqs3"
 
 [registry]
 url = "https://api.apr.dev"
