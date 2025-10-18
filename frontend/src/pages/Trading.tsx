@@ -2,11 +2,22 @@ import React, { useState } from 'react';
 import Header from '../components/Header';
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 
-const Trading = () => {
-  const [activeTab, setActiveTab] = useState('buy');
-  const [selectedAsset, setSelectedAsset] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
+type TradingAsset = {
+  id: number;
+  name: string;
+  location: string;
+  credits: number;
+  price: number;
+  change: number;
+  image: string;
+  category: string;
+};
+
+const Trading: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'buy' | 'sell'>('buy');
+  const [selectedAsset, setSelectedAsset] = useState<TradingAsset | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState<number>(1);
   const itemsPerPage = 4;
 
   // Expanded mock data for trading assets
@@ -136,7 +147,7 @@ const Trading = () => {
   const [buyAmount, setBuyAmount] = useState('');
   const [sellAmount, setSellAmount] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Projects');
-  
+
   // Market data
   const marketData = {
     totalVolume: '1,245.8',
@@ -148,7 +159,7 @@ const Trading = () => {
   // Filter assets based on search and category
   const filteredAssets = allTradingAssets.filter(asset => {
     const matchesSearch = asset.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         asset.location.toLowerCase().includes(searchQuery.toLowerCase());
+      asset.location.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'All Projects' || asset.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -160,17 +171,17 @@ const Trading = () => {
   const currentAssets = filteredAssets.slice(startIndex, endIndex);
 
   // Reset to page 1 when search or filter changes
-  const handleSearchChange = (e) => {
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
     setCurrentPage(1);
   };
 
-  const handleCategoryChange = (e) => {
+  const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedCategory(e.target.value);
     setCurrentPage(1);
   };
 
-  const handlePageChange = (page) => {
+  const handlePageChange = (page: number) => {
     setCurrentPage(page);
     setSelectedAsset(null); // Deselect asset when changing page
   };
@@ -192,7 +203,7 @@ const Trading = () => {
   return (
     <div className="min-h-screen bg-gray-900">
       <Header />
-      
+
       <div className="pt-24 pb-16">
         <div className="container mx-auto px-6 max-w-6xl">
           {/* Header Section */}
@@ -212,7 +223,7 @@ const Trading = () => {
               <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700/50 p-6">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                   <h2 className="text-xl font-bold text-white">Available Assets</h2>
-                  
+
                   <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                     {/* Search Box */}
                     <div className="relative flex-1 sm:w-64">
@@ -225,9 +236,9 @@ const Trading = () => {
                         className="w-full pl-10 pr-4 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent placeholder-gray-400"
                       />
                     </div>
-                    
+
                     {/* Category Filter */}
-                    <select 
+                    <select
                       value={selectedCategory}
                       onChange={handleCategoryChange}
                       className="bg-gray-700/50 border border-gray-600 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
@@ -249,18 +260,17 @@ const Trading = () => {
                 <div className="space-y-4 mb-6">
                   {currentAssets.length > 0 ? (
                     currentAssets.map((asset) => (
-                      <div 
-                        key={asset.id} 
-                        className={`p-4 rounded-xl border cursor-pointer transition-all ${
-                          selectedAsset?.id === asset.id 
-                            ? 'border-teal-500 bg-teal-500/10 shadow-lg shadow-teal-500/20' 
+                      <div
+                        key={asset.id}
+                        className={`p-4 rounded-xl border cursor-pointer transition-all ${selectedAsset?.id === asset.id
+                            ? 'border-teal-500 bg-teal-500/10 shadow-lg shadow-teal-500/20'
                             : 'border-gray-700 hover:border-cyan-500 hover:bg-gray-800/30'
-                        }`}
+                          }`}
                         onClick={() => setSelectedAsset(asset)}
                       >
                         <div className="flex items-center">
-                          <img 
-                            src={asset.image} 
+                          <img
+                            src={asset.image}
                             alt={asset.name}
                             className="w-16 h-16 rounded-lg object-cover mr-4"
                           />
@@ -301,40 +311,37 @@ const Trading = () => {
                     <button
                       onClick={() => handlePageChange(currentPage - 1)}
                       disabled={currentPage === 1}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
-                        currentPage === 1
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${currentPage === 1
                           ? 'bg-gray-700/30 text-gray-500 cursor-not-allowed'
                           : 'bg-gray-700/50 text-white hover:bg-gray-700'
-                      }`}
+                        }`}
                     >
                       <ChevronLeft className="w-4 h-4" />
                       Previous
                     </button>
-                    
+
                     <div className="flex gap-2">
                       {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                         <button
                           key={page}
                           onClick={() => handlePageChange(page)}
-                          className={`w-10 h-10 rounded-lg transition-all ${
-                            currentPage === page
+                          className={`w-10 h-10 rounded-lg transition-all ${currentPage === page
                               ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/50'
                               : 'bg-gray-700/50 text-gray-300 hover:bg-gray-700'
-                          }`}
+                            }`}
                         >
                           {page}
                         </button>
                       ))}
                     </div>
-                    
+
                     <button
                       onClick={() => handlePageChange(currentPage + 1)}
                       disabled={currentPage === totalPages}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
-                        currentPage === totalPages
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${currentPage === totalPages
                           ? 'bg-gray-700/30 text-gray-500 cursor-not-allowed'
                           : 'bg-gray-700/50 text-white hover:bg-gray-700'
-                      }`}
+                        }`}
                     >
                       Next
                       <ChevronRight className="w-4 h-4" />
@@ -349,21 +356,19 @@ const Trading = () => {
               <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700/50 p-6 sticky top-24">
                 <div className="flex border-b border-gray-700/50 mb-6">
                   <button
-                    className={`flex-1 py-2 px-4 text-center font-medium transition-all ${
-                      activeTab === 'buy'
+                    className={`flex-1 py-2 px-4 text-center font-medium transition-all ${activeTab === 'buy'
                         ? 'text-teal-400 border-b-2 border-teal-400'
                         : 'text-gray-400 hover:text-white'
-                    }`}
+                      }`}
                     onClick={() => setActiveTab('buy')}
                   >
                     Buy
                   </button>
                   <button
-                    className={`flex-1 py-2 px-4 text-center font-medium transition-all ${
-                      activeTab === 'sell'
+                    className={`flex-1 py-2 px-4 text-center font-medium transition-all ${activeTab === 'sell'
                         ? 'text-teal-400 border-b-2 border-teal-400'
                         : 'text-gray-400 hover:text-white'
-                    }`}
+                      }`}
                     onClick={() => setActiveTab('sell')}
                   >
                     Sell
@@ -373,8 +378,8 @@ const Trading = () => {
                 {selectedAsset ? (
                   <>
                     <div className="mb-6">
-                      <img 
-                        src={selectedAsset.image} 
+                      <img
+                        src={selectedAsset.image}
                         alt={selectedAsset.name}
                         className="w-full h-40 rounded-lg object-cover mb-4"
                       />
@@ -393,30 +398,28 @@ const Trading = () => {
                       <input
                         type="number"
                         value={activeTab === 'buy' ? buyAmount : sellAmount}
-                        onChange={(e) => 
-                          activeTab === 'buy' 
-                            ? setBuyAmount(e.target.value) 
+                        onChange={(e) =>
+                          activeTab === 'buy'
+                            ? setBuyAmount(e.target.value)
                             : setSellAmount(e.target.value)
                         }
                         placeholder={`Enter ${activeTab === 'buy' ? 'buy' : 'sell'} amount`}
                         className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                       />
                       <p className="text-gray-400 text-xs mt-2">
-                        {activeTab === 'buy' 
-                          ? 'Available balance: 10 ETH' 
+                        {activeTab === 'buy'
+                          ? 'Available balance: 10 ETH'
                           : `Available credits: ${selectedAsset.credits}`}
                       </p>
                     </div>
 
                     <button
                       onClick={activeTab === 'buy' ? handleBuy : handleSell}
-                      className={`w-full py-3 ${
-                        activeTab === 'buy' 
-                          ? 'bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600' 
+                      className={`w-full py-3 ${activeTab === 'buy'
+                          ? 'bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600'
                           : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600'
-                      } text-white font-medium rounded-lg transition-all shadow-lg ${
-                        activeTab === 'buy' ? 'shadow-teal-500/30' : 'shadow-cyan-500/30'
-                      }`}
+                        } text-white font-medium rounded-lg transition-all shadow-lg ${activeTab === 'buy' ? 'shadow-teal-500/30' : 'shadow-cyan-500/30'
+                        }`}
                     >
                       {activeTab === 'buy' ? 'Buy Credits' : 'Sell Credits'}
                     </button>

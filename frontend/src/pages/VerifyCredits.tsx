@@ -1,17 +1,31 @@
 import React, { useState } from 'react';
 import Header from '../components/Header';
 
-const VerifyCredits = () => {
-  const [creditId, setCreditId] = useState('');
-  const [verificationResult, setVerificationResult] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+type VerificationResult = {
+  id: string;
+  isValid: boolean;
+  project: string;
+  location: string;
+  credits: number;
+  vintage: string;
+  standard: string;
+  issuedDate: string;
+  status: 'Active' | 'Retired' | string;
+  blockchain?: string;
+  transactionHash?: string;
+};
 
-  const handleVerification = async (e) => {
+const VerifyCredits: React.FC = () => {
+  const [creditId, setCreditId] = useState<string>('');
+  const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const handleVerification = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!creditId.trim()) return;
-    
+
     setIsLoading(true);
-    
+
     // Simulate API call to verify credit
     setTimeout(() => {
       // Mock verification result - in a real app, this would come from an API
@@ -28,7 +42,7 @@ const VerifyCredits = () => {
         blockchain: 'Polygon',
         transactionHash: '0x' + Math.random().toString(16).substr(2, 40)
       };
-      
+
       setVerificationResult(mockResult);
       setIsLoading(false);
     }, 1500);
@@ -37,7 +51,7 @@ const VerifyCredits = () => {
   return (
     <div className="min-h-screen bg-gray-900">
       <Header />
-      
+
       <div className="pt-24 pb-16">
         <div className="container mx-auto px-6 max-w-4xl">
           {/* Header Section */}
@@ -71,11 +85,10 @@ const VerifyCredits = () => {
                   <button
                     type="submit"
                     disabled={isLoading || !creditId.trim()}
-                    className={`w-full md:w-auto px-6 py-3 rounded-lg font-medium transition-colors ${
-                      isLoading || !creditId.trim()
+                    className={`w-full md:w-auto px-6 py-3 rounded-lg font-medium transition-colors ${isLoading || !creditId.trim()
                         ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                         : 'bg-teal-500 hover:bg-teal-600 text-white'
-                    }`}
+                      }`}
                   >
                     {isLoading ? (
                       <span className="flex items-center justify-center">
@@ -96,16 +109,14 @@ const VerifyCredits = () => {
 
           {/* Verification Result */}
           {verificationResult && (
-            <div className={`rounded-2xl border p-6 mb-8 transition-all duration-300 ${
-              verificationResult.isValid 
-                ? 'bg-green-900/20 border-green-500/30' 
+            <div className={`rounded-2xl border p-6 mb-8 transition-all duration-300 ${verificationResult.isValid
+                ? 'bg-green-900/20 border-green-500/30'
                 : 'bg-red-900/20 border-red-500/30'
-            }`}>
+              }`}>
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center mr-4 ${
-                    verificationResult.isValid ? 'bg-green-500/20' : 'bg-red-500/20'
-                  }`}>
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center mr-4 ${verificationResult.isValid ? 'bg-green-500/20' : 'bg-red-500/20'
+                    }`}>
                     {verificationResult.isValid ? (
                       <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
@@ -125,11 +136,10 @@ const VerifyCredits = () => {
                     </p>
                   </div>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  verificationResult.status === 'Active' 
-                    ? 'bg-green-500/20 text-green-400' 
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${verificationResult.status === 'Active'
+                    ? 'bg-green-500/20 text-green-400'
                     : 'bg-red-500/20 text-red-400'
-                }`}>
+                  }`}>
                   {verificationResult.status}
                 </span>
               </div>
