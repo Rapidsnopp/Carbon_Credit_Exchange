@@ -2,13 +2,23 @@ import React from 'react';
 import FloatingCard from './FloatingCard';
 import { useState, useRef } from 'react';
 
-const HeroSection = () => {
-  const scrollRef = useRef(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
+const HeroSection: React.FC = () => {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [startX, setStartX] = useState<number>(0);
+  const [scrollLeft, setScrollLeft] = useState<number>(0);
 
-  const cards = [
+  type Card = {
+    image: string;
+    title: string;
+    location: string;
+    credits: string;
+    year: string;
+    size: 'sm' | 'md' | 'lg';
+    delay: number;
+  };
+
+  const cards: Card[] = [
     {
       image: 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=400&q=80',
       title: 'ForestForFuture',
@@ -56,18 +66,23 @@ const HeroSection = () => {
     }
   ];
 
-  const handleMouseDown = (e) => {
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = scrollRef.current;
+    if (!el) return;
     setIsDragging(true);
-    setStartX(e.pageX - scrollRef.current.offsetLeft);
-    setScrollLeft(scrollRef.current.scrollLeft);
+    const pageX = (e.nativeEvent as MouseEvent).pageX;
+    setStartX(pageX - (el as HTMLElement).offsetLeft);
+    setScrollLeft((el as HTMLElement).scrollLeft);
   };
 
-  const handleMouseMove = (e) => {
-    if (!isDragging) return;
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDragging || !scrollRef.current) return;
     e.preventDefault();
-    const x = e.pageX - scrollRef.current.offsetLeft;
+    const el = scrollRef.current as HTMLElement;
+    const pageX = (e.nativeEvent as MouseEvent).pageX;
+    const x = pageX - el.offsetLeft;
     const walk = (x - startX) * 2;
-    scrollRef.current.scrollLeft = scrollLeft - walk;
+    el.scrollLeft = scrollLeft - walk;
   };
 
   const handleMouseUp = () => {
@@ -83,13 +98,13 @@ const HeroSection = () => {
             <span className="text-gray-100">BUILDING A </span>
             <span className="text-teal-400">CARBON-NEUTRAL WORLD WITH BLOCKCHAIN</span>
           </h1>
-          
+
           <p className="text-gray-300 text-base md:text-lg mb-8 leading-relaxed">
-            With Caelum, anyone—from individuals to businesses—can buy, trade, or retire carbon credits 
-            in just a few clicks. Thanks to blockchain and fractional ownership, every action is transparent, 
+            With Caelum, anyone—from individuals to businesses—can buy, trade, or retire carbon credits
+            in just a few clicks. Thanks to blockchain and fractional ownership, every action is transparent,
             secure, and trackable in real time. Join the waitlist today or follow your sustainability journey on X.
           </p>
-          
+
           {/* <div className="flex gap-4">
             <button className="px-8 py-3 bg-gray-800/80 backdrop-blur-sm border border-gray-600 text-white hover:bg-gray-700 hover:border-gray-500 font-medium rounded-lg transition-all duration-300">
               Join Waitlist
@@ -107,20 +122,20 @@ const HeroSection = () => {
   const ImageCardSection = () => (
     <section className="relative min-h-[60vh] bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 overflow-hidden">
       {/* Background Image Layer with rounded corners */}
-      <div 
-        className="absolute inset-0 z-10 bg-cover bg-center opacity-50 rounded-b-[40px]" 
-        style={{ 
+      <div
+        className="absolute inset-0 z-10 bg-cover bg-center opacity-50 rounded-b-[40px]"
+        style={{
           backgroundImage: `url('https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1920&q=80')`,
           backgroundSize: 'cover',
           backgroundPosition: 'center'
         }}
       ></div>
-      
+
       {/* Dark Overlay with rounded corners */}
       <div className="absolute inset-0 z-20 bg-gradient-to-b from-gray-900/70 via-gray-900/60 to-gray-900/80 rounded-b-[40px]"></div>
-      
+
       {/* Floating Cards Container */}
-      <div 
+      <div
         ref={scrollRef}
         className="absolute inset-0 z-30 overflow-x-auto no-scrollbar cursor-grab active:cursor-grabbing"
         onMouseDown={handleMouseDown}
@@ -208,7 +223,7 @@ const HeroSection = () => {
           scrollbar-width: none;
         }
       `}</style>
-      
+
       <HeroTextSection />
       <ImageCardSection />
       <InfoSection />
