@@ -1,0 +1,20 @@
+{
+  "name": "carbon-credit-scripts",
+  "version": "1.0.0",
+  "description": "Utility scripts for Carbon Credit Exchange",
+  "type": "module",
+  "scripts": {
+    "init-exchange": "node --loader ts-node/esm initialize-exchange.ts",
+    "check-exchange": "node --loader ts-node/esm check-exchange.ts"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.29.0",
+    "@solana/web3.js": "^1.87.6",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.8.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.2.2"
+  }
+}
