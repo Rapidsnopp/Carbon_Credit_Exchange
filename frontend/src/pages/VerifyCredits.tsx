@@ -1,19 +1,5 @@
 import React, { useState } from 'react';
-import Header from '../components/Header';
-
-type VerificationResult = {
-  id: string;
-  isValid: boolean;
-  project: string;
-  location: string;
-  credits: number;
-  vintage: string;
-  standard: string;
-  issuedDate: string;
-  status: 'Active' | 'Retired' | string;
-  blockchain?: string;
-  transactionHash?: string;
-};
+import { VerificationResult } from "../types"
 
 const VerifyCredits: React.FC = () => {
   const [creditId, setCreditId] = useState<string>('');
@@ -50,8 +36,6 @@ const VerifyCredits: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-900">
-      <Header />
-
       <div className="pt-24 pb-16">
         <div className="container mx-auto px-6 max-w-4xl">
           {/* Header Section */}
@@ -86,8 +70,8 @@ const VerifyCredits: React.FC = () => {
                     type="submit"
                     disabled={isLoading || !creditId.trim()}
                     className={`w-full md:w-auto px-6 py-3 rounded-lg font-medium transition-colors ${isLoading || !creditId.trim()
-                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                        : 'bg-teal-500 hover:bg-teal-600 text-white'
+                      ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                      : 'bg-teal-500 hover:bg-teal-600 text-white'
                       }`}
                   >
                     {isLoading ? (
@@ -110,8 +94,8 @@ const VerifyCredits: React.FC = () => {
           {/* Verification Result */}
           {verificationResult && (
             <div className={`rounded-2xl border p-6 mb-8 transition-all duration-300 ${verificationResult.isValid
-                ? 'bg-green-900/20 border-green-500/30'
-                : 'bg-red-900/20 border-red-500/30'
+              ? 'bg-green-900/20 border-green-500/30'
+              : 'bg-red-900/20 border-red-500/30'
               }`}>
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center">
@@ -137,8 +121,8 @@ const VerifyCredits: React.FC = () => {
                   </div>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${verificationResult.status === 'Active'
-                    ? 'bg-green-500/20 text-green-400'
-                    : 'bg-red-500/20 text-red-400'
+                  ? 'bg-green-500/20 text-green-400'
+                  : 'bg-red-500/20 text-red-400'
                   }`}>
                   {verificationResult.status}
                 </span>
