@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { TradingAsset } from "../types"
 import HowToTrade from '../components/trading-page/HowToTrade';
@@ -10,6 +12,12 @@ const Trading: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const itemsPerPage = 4;
+
+  const navigate = useNavigate();
+
+  const handleViewDetails = (assetId: string | number) => {
+    navigate(`/nft/${assetId}`);
+  };
 
   // Expanded mock data for trading assets
   const allTradingAssets = getTradingAssets();
@@ -246,7 +254,18 @@ const Trading: React.FC = () => {
                         alt={selectedAsset.name}
                         className="w-full h-40 rounded-lg object-cover mb-4"
                       />
-                      <h3 className="font-bold text-white text-lg mb-2">{selectedAsset.name}</h3>
+                      <div className="flex justify-between items-center mb-2">
+                        <h3 className="font-bold text-white text-lg">{selectedAsset.name}</h3>
+                        <button
+                          // 4. Call the handler with the asset's ID
+                          onClick={() => handleViewDetails(selectedAsset.id)}
+                          className="text-sm font-medium text-teal-400 hover:text-teal-300 transition-colors flex items-center p-2 rounded-full hover:bg-gray-700/50"
+                          title="View NFT Details"
+                        >
+                          Details
+                          <ExternalLink className="w-4 h-4 ml-1" />
+                        </button>
+                      </div>
                       <p className="text-gray-400 text-sm mb-3">{selectedAsset.location}</p>
                       <div className="flex justify-between text-sm bg-gray-900/50 p-3 rounded-lg">
                         <span className="text-gray-400">Credits: {selectedAsset.credits}</span>
