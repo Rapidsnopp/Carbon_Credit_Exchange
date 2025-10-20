@@ -1,17 +1,7 @@
 import React, { useState } from 'react';
-import Header from '../components/Header';
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
-
-type TradingAsset = {
-  id: number;
-  name: string;
-  location: string;
-  credits: number;
-  price: number;
-  change: number;
-  image: string;
-  category: string;
-};
+import { TradingAsset } from "../types"
+import HowToTrade from '../components/trading-page/HowToTrade';
 
 const Trading: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'buy' | 'sell'>('buy');
@@ -202,8 +192,6 @@ const Trading: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-900">
-      <Header />
-
       <div className="pt-24 pb-16">
         <div className="container mx-auto px-6 max-w-6xl">
           {/* Header Section */}
@@ -263,8 +251,8 @@ const Trading: React.FC = () => {
                       <div
                         key={asset.id}
                         className={`p-4 rounded-xl border cursor-pointer transition-all ${selectedAsset?.id === asset.id
-                            ? 'border-teal-500 bg-teal-500/10 shadow-lg shadow-teal-500/20'
-                            : 'border-gray-700 hover:border-cyan-500 hover:bg-gray-800/30'
+                          ? 'border-teal-500 bg-teal-500/10 shadow-lg shadow-teal-500/20'
+                          : 'border-gray-700 hover:border-cyan-500 hover:bg-gray-800/30'
                           }`}
                         onClick={() => setSelectedAsset(asset)}
                       >
@@ -312,8 +300,8 @@ const Trading: React.FC = () => {
                       onClick={() => handlePageChange(currentPage - 1)}
                       disabled={currentPage === 1}
                       className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${currentPage === 1
-                          ? 'bg-gray-700/30 text-gray-500 cursor-not-allowed'
-                          : 'bg-gray-700/50 text-white hover:bg-gray-700'
+                        ? 'bg-gray-700/30 text-gray-500 cursor-not-allowed'
+                        : 'bg-gray-700/50 text-white hover:bg-gray-700'
                         }`}
                     >
                       <ChevronLeft className="w-4 h-4" />
@@ -326,8 +314,8 @@ const Trading: React.FC = () => {
                           key={page}
                           onClick={() => handlePageChange(page)}
                           className={`w-10 h-10 rounded-lg transition-all ${currentPage === page
-                              ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/50'
-                              : 'bg-gray-700/50 text-gray-300 hover:bg-gray-700'
+                            ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/50'
+                            : 'bg-gray-700/50 text-gray-300 hover:bg-gray-700'
                             }`}
                         >
                           {page}
@@ -339,8 +327,8 @@ const Trading: React.FC = () => {
                       onClick={() => handlePageChange(currentPage + 1)}
                       disabled={currentPage === totalPages}
                       className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${currentPage === totalPages
-                          ? 'bg-gray-700/30 text-gray-500 cursor-not-allowed'
-                          : 'bg-gray-700/50 text-white hover:bg-gray-700'
+                        ? 'bg-gray-700/30 text-gray-500 cursor-not-allowed'
+                        : 'bg-gray-700/50 text-white hover:bg-gray-700'
                         }`}
                     >
                       Next
@@ -357,8 +345,8 @@ const Trading: React.FC = () => {
                 <div className="flex border-b border-gray-700/50 mb-6">
                   <button
                     className={`flex-1 py-2 px-4 text-center font-medium transition-all ${activeTab === 'buy'
-                        ? 'text-teal-400 border-b-2 border-teal-400'
-                        : 'text-gray-400 hover:text-white'
+                      ? 'text-teal-400 border-b-2 border-teal-400'
+                      : 'text-gray-400 hover:text-white'
                       }`}
                     onClick={() => setActiveTab('buy')}
                   >
@@ -366,8 +354,8 @@ const Trading: React.FC = () => {
                   </button>
                   <button
                     className={`flex-1 py-2 px-4 text-center font-medium transition-all ${activeTab === 'sell'
-                        ? 'text-teal-400 border-b-2 border-teal-400'
-                        : 'text-gray-400 hover:text-white'
+                      ? 'text-teal-400 border-b-2 border-teal-400'
+                      : 'text-gray-400 hover:text-white'
                       }`}
                     onClick={() => setActiveTab('sell')}
                   >
@@ -416,8 +404,8 @@ const Trading: React.FC = () => {
                     <button
                       onClick={activeTab === 'buy' ? handleBuy : handleSell}
                       className={`w-full py-3 ${activeTab === 'buy'
-                          ? 'bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600'
-                          : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600'
+                        ? 'bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600'
+                        : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600'
                         } text-white font-medium rounded-lg transition-all shadow-lg ${activeTab === 'buy' ? 'shadow-teal-500/30' : 'shadow-cyan-500/30'
                         }`}
                     >
@@ -464,38 +452,7 @@ const Trading: React.FC = () => {
           </div>
 
           {/* How Trading Works */}
-          <div className="mt-16">
-            <h2 className="text-3xl font-bold text-white text-center mb-12">How Carbon Credit Trading Works</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-gray-800/40 backdrop-blur-sm p-6 rounded-2xl border border-gray-700/50">
-                <div className="w-12 h-12 bg-teal-500/20 rounded-full flex items-center justify-center mb-4 mx-auto">
-                  <span className="text-lg font-bold text-teal-400">1</span>
-                </div>
-                <h3 className="font-bold text-white mb-2 text-center">Select Credits</h3>
-                <p className="text-gray-400 text-sm text-center">
-                  Browse verified carbon credit projects and select the ones that align with your sustainability goals.
-                </p>
-              </div>
-              <div className="bg-gray-800/40 backdrop-blur-sm p-6 rounded-2xl border border-gray-700/50">
-                <div className="w-12 h-12 bg-teal-500/20 rounded-full flex items-center justify-center mb-4 mx-auto">
-                  <span className="text-lg font-bold text-teal-400">2</span>
-                </div>
-                <h3 className="font-bold text-white mb-2 text-center">Trade Securely</h3>
-                <p className="text-gray-400 text-sm text-center">
-                  Execute trades using our secure blockchain platform with transparent pricing and instant settlement.
-                </p>
-              </div>
-              <div className="bg-gray-800/40 backdrop-blur-sm p-6 rounded-2xl border border-gray-700/50">
-                <div className="w-12 h-12 bg-teal-500/20 rounded-full flex items-center justify-center mb-4 mx-auto">
-                  <span className="text-lg font-bold text-teal-400">3</span>
-                </div>
-                <h3 className="font-bold text-white mb-2 text-center">Track Impact</h3>
-                <p className="text-gray-400 text-sm text-center">
-                  Monitor your carbon offset impact and retirement status through our comprehensive dashboard.
-                </p>
-              </div>
-            </div>
-          </div>
+          <HowToTrade />
         </div>
       </div>
     </div>
