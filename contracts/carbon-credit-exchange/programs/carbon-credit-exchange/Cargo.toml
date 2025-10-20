@@ -13,10 +13,14 @@ no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
 cpi = ["no-entrypoint"]
+idl-build = ["anchor-lang/idl-build"]
 default = []
 
 [dependencies]
-anchor-lang = "0.28.0"
-anchor-spl = "0.28.0"
-mpl-token-metadata = { version = "1.12.0", features = ["no-entrypoint"] }
-solana-program = "~1.16.0"
+anchor-lang = { workspace = true }
+anchor-spl = { workspace = true }
+mpl-token-metadata = { workspace = true }
+spl-token = { workspace = true, features = ["no-entrypoint"] }
+spl-associated-token-account = { workspace = true, features = ["no-entrypoint"] }
+borsh = { workspace = true }
+thiserror = { workspace = true }
