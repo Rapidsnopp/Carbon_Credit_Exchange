@@ -15,9 +15,9 @@ export default function App() {
             {/* Layout bao quanh các route con */}
             <Route element={<Layout />}>
               <Route path="/" element={<HomePage />} />
+              <Route path="/mint" element={<MintNFT />} />
               <Route path="/verify-credits" element={<VerifyCredits />} />
               <Route path="/trading" element={<Trading />} />
-              <Route path="/mint" element={<MintNFT />} />
             </Route>
           </Routes>
         </Router>
