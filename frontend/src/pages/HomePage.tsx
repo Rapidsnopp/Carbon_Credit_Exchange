@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Globe } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 import HeroSection from '../components/home-page/HeroSection';
 import ImpactStats from '../components/home-page/ImpactStats';
@@ -11,6 +12,12 @@ const HomePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'forest' | 'ocean' | 'renewable'>('forest');
 
   const projectCategories = getProjectCategoriesForHome();
+  const navigate = useNavigate();
+
+  const handleViewDetails = (projectId: string | number) => {
+    // Navigate to the dynamic route 'nft/{id}'
+    navigate(`/nft/${projectId}`);
+  };
 
   return (
     <div className="min-h-screen bg-gray-900">
@@ -96,7 +103,7 @@ const HomePage: React.FC = () => {
                     </div>
                   </div>
 
-                  <button className="w-full py-3 bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white font-medium rounded-xl transition-all duration-300 shadow-lg shadow-teal-500/30 hover:shadow-teal-500/50">
+                  <button onClick={() => handleViewDetails(project.id)} className="w-full py-3 bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white font-medium rounded-xl transition-all duration-300 shadow-lg shadow-teal-500/30 hover:shadow-teal-500/50">
                     View Details →
                   </button>
                 </div>

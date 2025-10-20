@@ -276,6 +276,7 @@ export const filterProjects = (
 export const getProjectCategoriesForHome = () => {
   return {
     forest: getProjectsByCategory('forest').slice(0, 2).map(p => ({
+      id: p.id,
       title: p.title,
       location: p.location,
       image: p.image,
@@ -284,6 +285,7 @@ export const getProjectCategoriesForHome = () => {
       impact: p.impact
     })),
     ocean: getProjectsByCategory('ocean').slice(0, 2).map(p => ({
+      id: p.id,
       title: p.title,
       location: p.location,
       image: p.image,
@@ -292,6 +294,7 @@ export const getProjectCategoriesForHome = () => {
       impact: p.impact
     })),
     renewable: getProjectsByCategory('renewable').slice(0, 2).map(p => ({
+      id: p.id,
       title: p.title,
       location: p.location,
       image: p.image,

@@ -61,7 +61,7 @@ export default function MoreInfor() {
                         <span className="inline-block ml-2 transition-transform duration-300 group-hover:translate-x-1">→</span>
                     </a>
                     <a
-                        href="/mint-nft"
+                        href="/mint"
                         className="px-10 py-4 bg-gray-800/80 backdrop-blur-sm hover:bg-gray-700 text-white font-bold rounded-xl transition-all duration-300 border-2 border-gray-600 hover:border-teal-500"
                     >
                         Mint Your Credits

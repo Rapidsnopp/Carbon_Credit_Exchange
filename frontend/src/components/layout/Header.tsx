@@ -35,8 +35,8 @@ const Header: React.FC = () => {
 
         {/* Navigation Buttons */}
         <div className="flex items-center gap-1">
-          {["/", "/mint", "/trading", "/verify-credits"].map((path, idx) => {
-            const labels = ["Home", "Mint NFT", "Trading", "Verify Credits"];
+          {["/", "/mint", "/trading", "/verify-credits", "/my-nfts"].map((path, idx) => {
+            const labels = ["Home", "Mint NFT", "Trading", "Verify Credits", "My NFTs"];
             return (
               <button
                 key={path}

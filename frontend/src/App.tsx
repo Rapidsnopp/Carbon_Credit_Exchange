@@ -6,6 +6,7 @@ import VerifyCredits from "./pages/VerifyCredits";
 import Trading from "./pages/Trading";
 import MintNFT from "./pages/MintNFT";
 import NFTDetails from "./pages/NFTDetails";
+import MyNFTs from "./pages/MyNFTs";
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
               <Route path="/verify-credits" element={<VerifyCredits />} />
               <Route path="/trading" element={<Trading />} />
               <Route path="/nft/:id" element={<NFTDetails />} />
+              <Route path="/my-nfts" element={<MyNFTs />} />
             </Route>
           </Routes>
         </Router>
