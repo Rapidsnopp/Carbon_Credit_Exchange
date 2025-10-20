@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { TradingAsset } from "../types"
 import HowToTrade from '../components/trading-page/HowToTrade';
+import { getTradingAssets, getMarketStats } from '../constant/mockData';
 
 const Trading: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'buy' | 'sell'>('buy');
@@ -11,140 +12,14 @@ const Trading: React.FC = () => {
   const itemsPerPage = 4;
 
   // Expanded mock data for trading assets
-  const allTradingAssets = [
-    {
-      id: 1,
-      name: 'ForestForFuture',
-      location: 'Afforestation, Brazil',
-      credits: 76,
-      price: 0.025,
-      change: 2.5,
-      image: 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=400&q=80',
-      category: 'Forestry'
-    },
-    {
-      id: 2,
-      name: 'OceanGuardian',
-      location: 'Marine Conservation, Australia',
-      credits: 150,
-      price: 0.032,
-      change: -1.2,
-      image: 'https://images.unsplash.com/photo-1473448912268-2022ce9509d8?w=400&q=80',
-      category: 'Marine Conservation'
-    },
-    {
-      id: 3,
-      name: 'MountainShield',
-      location: 'Mountain Preservation, Nepal',
-      credits: 95,
-      price: 0.028,
-      change: 0.8,
-      image: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=400&q=80',
-      category: 'Forestry'
-    },
-    {
-      id: 4,
-      name: 'GreenEnergy',
-      location: 'Renewable Energy, India',
-      credits: 200,
-      price: 0.022,
-      change: 3.1,
-      image: 'https://images.unsplash.com/photo-1542273917363-3b1817f69a2d?w=400&q=80',
-      category: 'Renewable Energy'
-    },
-    {
-      id: 5,
-      name: 'SolarPower India',
-      location: 'Solar Farm, Rajasthan',
-      credits: 180,
-      price: 0.029,
-      change: 1.8,
-      image: 'https://images.unsplash.com/photo-1509391366360-2e959784a276?w=400&q=80',
-      category: 'Renewable Energy'
-    },
-    {
-      id: 6,
-      name: 'WindForce Scotland',
-      location: 'Wind Energy, Highlands',
-      credits: 165,
-      price: 0.033,
-      change: 2.2,
-      image: 'https://images.unsplash.com/photo-1532601224476-15c79f2f7a51?w=400&q=80',
-      category: 'Renewable Energy'
-    },
-    {
-      id: 7,
-      name: 'Amazon Protection',
-      location: 'Rainforest, Peru',
-      credits: 120,
-      price: 0.027,
-      change: -0.5,
-      image: 'https://images.unsplash.com/photo-1511497584788-876760111969?w=400&q=80',
-      category: 'Forestry'
-    },
-    {
-      id: 8,
-      name: 'Coral Reef Revival',
-      location: 'Reef Conservation, Indonesia',
-      credits: 89,
-      price: 0.024,
-      change: 1.5,
-      image: 'https://images.unsplash.com/photo-1583212292454-1fe6229603b7?w=400&q=80',
-      category: 'Marine Conservation'
-    },
-    {
-      id: 9,
-      name: 'BioGas Kenya',
-      location: 'Biogas Project, Nairobi',
-      credits: 142,
-      price: 0.026,
-      change: 0.9,
-      image: 'https://images.unsplash.com/photo-1497435334941-8c899ee9e8e9?w=400&q=80',
-      category: 'Renewable Energy'
-    },
-    {
-      id: 10,
-      name: 'Mangrove Restoration',
-      location: 'Coastal Protection, Vietnam',
-      credits: 110,
-      price: 0.023,
-      change: 2.7,
-      image: 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=400&q=80',
-      category: 'Marine Conservation'
-    },
-    {
-      id: 11,
-      name: 'Alpine Forest Care',
-      location: 'Mountain Forest, Switzerland',
-      credits: 88,
-      price: 0.031,
-      change: -0.8,
-      image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&q=80',
-      category: 'Forestry'
-    },
-    {
-      id: 12,
-      name: 'Hydro Power Thailand',
-      location: 'Hydroelectric, Chiang Mai',
-      credits: 175,
-      price: 0.030,
-      change: 1.2,
-      image: 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=400&q=80',
-      category: 'Renewable Energy'
-    }
-  ];
+  const allTradingAssets = getTradingAssets();
+  const marketData = getMarketStats();
 
   const [buyAmount, setBuyAmount] = useState('');
   const [sellAmount, setSellAmount] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Projects');
 
-  // Market data
-  const marketData = {
-    totalVolume: '1,245.8',
-    change24h: 2.4,
-    activeTrades: 24,
-    avgPrice: '0.027'
-  };
+
 
   // Filter assets based on search and category
   const filteredAssets = allTradingAssets.filter(asset => {

@@ -5,66 +5,12 @@ import HeroSection from '../components/home-page/HeroSection';
 import ImpactStats from '../components/home-page/ImpactStats';
 import HowItWorks from '../components/home-page/HowItWorks';
 import MoreInfor from '../components/home-page/MoreInfor';
+import { getProjectCategoriesForHome } from '../constant/mockData';
 
 const HomePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'forest' | 'ocean' | 'renewable'>('forest');
 
-  const projectCategories = {
-    forest: [
-      {
-        title: "ForestForFuture",
-        location: "Afforestation, Brazil",
-        image: "https://images.unsplash.com/photo-1448375240586-882707db888b?w=400&q=80",
-        credits: 76,
-        price: "0.025 ETH",
-        impact: "2,400 tons CO₂/year"
-      },
-      {
-        title: "Amazon Rainforest Protection",
-        location: "Conservation, Peru",
-        image: "https://images.unsplash.com/photo-1542273917363-3b1817f69a2d?w=400&q=80",
-        credits: 120,
-        price: "0.029 ETH",
-        impact: "3,800 tons CO₂/year"
-      }
-    ],
-    ocean: [
-      {
-        title: "OceanGuardian",
-        location: "Marine Conservation, Australia",
-        image: "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?w=400&q=80",
-        credits: 150,
-        price: "0.032 ETH",
-        impact: "4,200 tons CO₂/year"
-      },
-      {
-        title: "Coral Reef Restoration",
-        location: "Southeast Asia",
-        image: "https://images.unsplash.com/photo-1583212292454-1fe6229603b7?w=400&q=80",
-        credits: 89,
-        price: "0.027 ETH",
-        impact: "2,900 tons CO₂/year"
-      }
-    ],
-    renewable: [
-      {
-        title: "Solar Power Initiative",
-        location: "Kenya",
-        image: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=400&q=80",
-        credits: 200,
-        price: "0.035 ETH",
-        impact: "5,600 tons CO₂/year"
-      },
-      {
-        title: "Wind Energy Farm",
-        location: "Scotland",
-        image: "https://images.unsplash.com/photo-1532601224476-15c79f2f7a51?w=400&q=80",
-        credits: 165,
-        price: "0.033 ETH",
-        impact: "5,100 tons CO₂/year"
-      }
-    ]
-  };
+  const projectCategories = getProjectCategoriesForHome();
 
   return (
     <div className="min-h-screen bg-gray-900">
