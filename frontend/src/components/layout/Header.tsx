@@ -4,15 +4,15 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import "@solana/wallet-adapter-react-ui/styles.css"; // bắt buộc import CSS
 
-const Header = () => {
+const Header: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const handleNavigation = (path) => {
+  const handleNavigation = (path: string) => {
     navigate(path);
   };
 
-  const isActive = (path) => location.pathname === path;
+  const isActive = (path: string) => location.pathname === path;
 
   const { connected, publicKey, connect } = useWallet();
 
@@ -35,16 +35,15 @@ const Header = () => {
 
         {/* Navigation Buttons */}
         <div className="flex items-center gap-1">
-          {["/", "/mint", "/trading", "/verify-credits"].map((path, idx) => {
-            const labels = ["Home", "Mint NFT", "Trading", "Verify Credits"];
+          {["/", "/mint", "/trading", "/verify-credits", "/my-nfts"].map((path, idx) => {
+            const labels = ["Home", "Mint NFT", "Trading", "Verify Credits", "My NFTs"];
             return (
               <button
                 key={path}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
-                  isActive(path)
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${isActive(path)
                     ? "bg-teal-500 text-white shadow-md shadow-teal-500/20"
                     : "text-gray-300 hover:text-white hover:bg-gray-800/50"
-                }`}
+                  }`}
                 onClick={() => handleNavigation(path)}
               >
                 {labels[idx]}

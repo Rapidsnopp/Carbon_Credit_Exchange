@@ -12,14 +12,22 @@ interface WalletContextProps {
   children: ReactNode;
 }
 
-const WalletContext = createContext({});
+interface WalletContextValue {
+  // extend later with connected, publicKey, connect, etc. from wallet adapter if needed
+}
 
-export const useWalletContext = () => useContext(WalletContext);
+const WalletContext = createContext<WalletContextValue | undefined>(undefined);
+
+export const useWalletContext = (): WalletContextValue => {
+  const ctx = useContext(WalletContext);
+  if (!ctx) throw new Error('useWalletContext must be used within WalletProvider');
+  return ctx;
+};
 
 export const WalletProvider: React.FC<WalletContextProps> = ({ children }) => {
   // The network can be set to 'devnet', 'testnet', or 'mainnet-beta'
   const network = WalletAdapterNetwork.Devnet;
-  
+
   // You can also provide a custom RPC endpoint
   const endpoint = useMemo(() => clusterApiUrl(network), [network]);
 
