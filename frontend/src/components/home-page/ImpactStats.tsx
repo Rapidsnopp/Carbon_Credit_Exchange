@@ -1,6 +1,7 @@
 import { Leaf, Globe, TrendingUp, Award } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Stats } from '../../types';
+import { getImpactStats } from "../../services"
 
 export default function ImpactStats() {
     const [stats, setStats] = useState<Stats>({
@@ -10,11 +11,23 @@ export default function ImpactStats() {
         co2Offset: 0
     });
     useEffect(() => {
-        const targetValues = {
-            totalCredits: 12458,
-            verifiedProjects: 245,
-            treesPreserved: 156789,
-            co2Offset: 45678
+        async function fetchStats() {
+            const result = await getImpactStats();
+            const data = {
+                totalCredits: result?.data?.activeListings ?? 0,
+                verifiedProjects: result?.data?.totalMinted ?? 0,
+                treesPreserved: result?.data?.treesPreserved ?? 0,
+                co2Offset: result?.data?.co2Offset ?? 0
+            }
+            if (data) setStats(data);
+        }
+        fetchStats();
+
+        const targetValues: Stats = {
+            totalCredits: stats.totalCredits,
+            verifiedProjects: stats.verifiedProjects,
+            treesPreserved: stats.treesPreserved,
+            co2Offset: stats.co2Offset
         };
 
         const duration = 2000;
@@ -63,7 +76,7 @@ export default function ImpactStats() {
                             <TrendingUp className="w-7 h-7 text-teal-400" />
                         </div>
                         <div className="text-4xl font-bold text-white mb-2">
-                            {stats.totalCredits.toLocaleString()}+
+                            {stats.totalCredits.toLocaleString()}
                         </div>
                         <div className="text-gray-400 font-medium">Carbon Credits Traded</div>
                     </div>
@@ -83,7 +96,7 @@ export default function ImpactStats() {
                             <Leaf className="w-7 h-7 text-emerald-400" />
                         </div>
                         <div className="text-4xl font-bold text-white mb-2">
-                            {stats.treesPreserved.toLocaleString()}+
+                            {stats.treesPreserved.toLocaleString()}
                         </div>
                         <div className="text-gray-400 font-medium">Trees Preserved</div>
                     </div>
@@ -93,7 +106,7 @@ export default function ImpactStats() {
                             <Globe className="w-7 h-7 text-blue-400" />
                         </div>
                         <div className="text-4xl font-bold text-white mb-2">
-                            {stats.co2Offset.toLocaleString()}+
+                            {stats.co2Offset.toLocaleString()}
                         </div>
                         <div className="text-gray-400 font-medium">CO₂ Tons Offset</div>
                     </div>

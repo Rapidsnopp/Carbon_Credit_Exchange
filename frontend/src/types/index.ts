@@ -48,3 +48,6 @@ export type Stats = {
     treesPreserved: number;
     co2Offset: number;
 };
+
+export { CarbonCreditType } from "./carbonCredit"
+export { MarketplaceListingType } from "./marketplaceListing"

@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
-import { TradingAsset } from "../types"
+import { TradingAsset, CarbonCreditType } from "../types"
 import HowToTrade from '../components/trading-page/HowToTrade';
-import { getTradingAssets, getMarketStats } from '../constant/mockData';
+import { getTradingAssets } from '../constant/mockData';
+import MarketStats from '../components/trading-page/MarketStats';
+import ApiService from "../services/api"
 
 const Trading: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'buy' | 'sell'>('buy');
-  const [selectedAsset, setSelectedAsset] = useState<TradingAsset | null>(null);
+  const [selectedAsset, setSelectedAsset] = useState<CarbonCreditType | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const itemsPerPage = 4;
@@ -18,22 +19,30 @@ const Trading: React.FC = () => {
   const handleViewDetails = (assetId: string | number) => {
     navigate(`/nft/${assetId}`);
   };
+  const [allTradingAssets, setAllTradingAssets] = useState<CarbonCreditType[]>([]);
 
-  // Expanded mock data for trading assets
-  const allTradingAssets = getTradingAssets();
-  const marketData = getMarketStats();
+  useEffect(() => {
+    // Expanded mock data for trading assets
+    const fetchTradingAssets = async () => {
+      const assets = await await ApiService.getAllCarbonCredits().then((response) => {
+        console.log("Fetched trading assets:", response.data);
+        return response.data as CarbonCreditType[];
+      });
+      setAllTradingAssets(assets);
+    }
+    fetchTradingAssets();
+    // const allTradingAssets = getTradingAssets();
+  }, []);
 
   const [buyAmount, setBuyAmount] = useState('');
   const [sellAmount, setSellAmount] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Projects');
 
-
-
   // Filter assets based on search and category
   const filteredAssets = allTradingAssets.filter(asset => {
-    const matchesSearch = asset.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      asset.location.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'All Projects' || asset.category === selectedCategory;
+    const matchesSearch = asset.projectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      asset.location.country.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'All Projects' || asset.projectType === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
@@ -61,14 +70,14 @@ const Trading: React.FC = () => {
 
   const handleBuy = () => {
     if (buyAmount && selectedAsset) {
-      alert(`Successfully bought ${buyAmount} credits of ${selectedAsset.name}`);
+      alert(`Successfully bought ${buyAmount} credits of ${selectedAsset.metadata}`);
       setBuyAmount('');
     }
   };
 
   const handleSell = () => {
     if (sellAmount && selectedAsset) {
-      alert(`Successfully sold ${sellAmount} credits of ${selectedAsset.name}`);
+      alert(`Successfully sold ${sellAmount} credits of ${selectedAsset.metadata}`);
       setSellAmount('');
     }
   };
@@ -86,6 +95,7 @@ const Trading: React.FC = () => {
               Buy, sell, and trade verified carbon credits on our decentralized marketplace
             </p>
           </div>
+          <MarketStats />
 
           {/* Trading Interface */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -130,37 +140,37 @@ const Trading: React.FC = () => {
                 {/* Asset Cards */}
                 <div className="space-y-4 mb-6">
                   {currentAssets.length > 0 ? (
-                    currentAssets.map((asset) => (
+                    currentAssets.map((asset, id) => (
                       <div
-                        key={asset.id}
-                        className={`p-4 rounded-xl border cursor-pointer transition-all ${selectedAsset?.id === asset.id
+                        key={id}
+                        className={`p-4 rounded-xl border cursor-pointer transition-all ${selectedAsset?.mint === asset.mint
                           ? 'border-teal-500 bg-teal-500/10 shadow-lg shadow-teal-500/20'
                           : 'border-gray-700 hover:border-cyan-500 hover:bg-gray-800/30'
                           }`}
                         onClick={() => setSelectedAsset(asset)}
-                      >
+                      > \
                         <div className="flex items-center">
                           <img
-                            src={asset.image}
-                            alt={asset.name}
+                            src={(asset.metadata?.image)}
+                            alt={(asset.metadata?.image)}
                             className="w-16 h-16 rounded-lg object-cover mr-4"
                           />
                           <div className="flex-grow">
                             <div className="flex justify-between items-start">
                               <div>
-                                <h3 className="font-bold text-white text-lg">{asset.name}</h3>
-                                <p className="text-gray-400 text-sm">{asset.location}</p>
+                                <h3 className="font-bold text-white text-lg">{(asset.metadata?.name)}</h3>
+                                <p className="text-gray-400 text-sm">{(asset.location.country)}</p>
                               </div>
                               <div className="text-right">
-                                <p className="text-white font-bold">{asset.price} ETH</p>
-                                <p className={`text-sm ${asset.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                  {asset.change >= 0 ? '+' : ''}{asset.change}%
+                                <p className="text-white font-bold">{(asset.listingPrice)} ETH</p>
+                                <p className={`text-sm ${(asset.carbonAmount) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                  {(asset.carbonAmount) >= 0 ? '+' : ''}{(asset.carbonAmount)}%
                                 </p>
                               </div>
                             </div>
                             <div className="flex justify-between mt-2">
-                              <span className="text-gray-400 text-sm">Credits: {asset.credits}</span>
-                              <span className="text-teal-400 text-sm">{asset.category}</span>
+                              <span className="text-gray-400 text-sm">Credits: {asset.mint}</span>
+                              <span className="text-teal-400 text-sm">{asset.listingPrice}</span>
                             </div>
                           </div>
                         </div>
@@ -224,41 +234,20 @@ const Trading: React.FC = () => {
 
             {/* Trading Panel */}
             <div className="lg:col-span-1">
-              <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700/50 p-6 sticky top-24">
-                <div className="flex border-b border-gray-700/50 mb-6">
-                  <button
-                    className={`flex-1 py-2 px-4 text-center font-medium transition-all ${activeTab === 'buy'
-                      ? 'text-teal-400 border-b-2 border-teal-400'
-                      : 'text-gray-400 hover:text-white'
-                      }`}
-                    onClick={() => setActiveTab('buy')}
-                  >
-                    Buy
-                  </button>
-                  <button
-                    className={`flex-1 py-2 px-4 text-center font-medium transition-all ${activeTab === 'sell'
-                      ? 'text-teal-400 border-b-2 border-teal-400'
-                      : 'text-gray-400 hover:text-white'
-                      }`}
-                    onClick={() => setActiveTab('sell')}
-                  >
-                    Sell
-                  </button>
-                </div>
-
+              <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700/50 p-6 top-24">
                 {selectedAsset ? (
                   <>
                     <div className="mb-6">
                       <img
-                        src={selectedAsset.image}
-                        alt={selectedAsset.name}
+                        src={selectedAsset.metadata?.image}
+                        alt={selectedAsset.metadata?.name}
                         className="w-full h-40 rounded-lg object-cover mb-4"
                       />
                       <div className="flex justify-between items-center mb-2">
-                        <h3 className="font-bold text-white text-lg">{selectedAsset.name}</h3>
+                        <h3 className="font-bold text-white text-lg">{selectedAsset.metadata?.name}</h3>
                         <button
                           // 4. Call the handler with the asset's ID
-                          onClick={() => handleViewDetails(selectedAsset.id)}
+                          onClick={() => handleViewDetails(selectedAsset.mint)}
                           className="text-sm font-medium text-teal-400 hover:text-teal-300 transition-colors flex items-center p-2 rounded-full hover:bg-gray-700/50"
                           title="View NFT Details"
                         >
@@ -266,44 +255,35 @@ const Trading: React.FC = () => {
                           <ExternalLink className="w-4 h-4 ml-1" />
                         </button>
                       </div>
-                      <p className="text-gray-400 text-sm mb-3">{selectedAsset.location}</p>
+                      <p className="text-gray-400 text-sm mb-3">{selectedAsset.location.country}</p>
                       <div className="flex justify-between text-sm bg-gray-900/50 p-3 rounded-lg">
-                        <span className="text-gray-400">Credits: {selectedAsset.credits}</span>
-                        <span className="text-white font-bold">{selectedAsset.price} ETH</span>
+                        <span className="text-gray-400">Credits: {selectedAsset.mint}</span>
+                        <span className="text-white font-bold">{selectedAsset.listingPrice} ETH</span>
                       </div>
                     </div>
 
                     <div className="mb-6">
                       <label className="block text-sm font-medium text-gray-300 mb-2">
-                        {activeTab === 'buy' ? 'Amount to Buy' : 'Amount to Sell'}
+                        {'Amount to Buy'}
                       </label>
                       <input
                         type="number"
-                        value={activeTab === 'buy' ? buyAmount : sellAmount}
-                        onChange={(e) =>
-                          activeTab === 'buy'
-                            ? setBuyAmount(e.target.value)
-                            : setSellAmount(e.target.value)
+                        value={buyAmount}
+                        onChange={(e) => setBuyAmount(e.target.value)
                         }
-                        placeholder={`Enter ${activeTab === 'buy' ? 'buy' : 'sell'} amount`}
+                        placeholder={`amount`}
                         className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                       />
-                      <p className="text-gray-400 text-xs mt-2">
-                        {activeTab === 'buy'
-                          ? 'Available balance: 10 ETH'
-                          : `Available credits: ${selectedAsset.credits}`}
+                      <p className="text-gray-400 text-xs mt-2">'Available balance: 10 ETH ${selectedAsset.mint}`
                       </p>
                     </div>
 
                     <button
-                      onClick={activeTab === 'buy' ? handleBuy : handleSell}
-                      className={`w-full py-3 ${activeTab === 'buy'
-                        ? 'bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600'
-                        : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600'
-                        } text-white font-medium rounded-lg transition-all shadow-lg ${activeTab === 'buy' ? 'shadow-teal-500/30' : 'shadow-cyan-500/30'
-                        }`}
-                    >
-                      {activeTab === 'buy' ? 'Buy Credits' : 'Sell Credits'}
+                      onClick={handleBuy}
+                      className={`w-full py-3 bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600'
+                      } text-white font-medium rounded-lg transition-all shadow-lg 'shadow-teal-500/30'
+                        }`}>
+                      Buy Credits
                     </button>
                   </>
                 ) : (
@@ -318,30 +298,7 @@ const Trading: React.FC = () => {
                 )}
               </div>
 
-              {/* Market Stats */}
-              <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700/50 p-6 mt-6">
-                <h3 className="font-bold text-white text-lg mb-4">Market Overview</h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Total Volume</span>
-                    <span className="text-white">{marketData.totalVolume} ETH</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">24h Change</span>
-                    <span className={marketData.change24h >= 0 ? 'text-green-400' : 'text-red-400'}>
-                      {marketData.change24h >= 0 ? '+' : ''}{marketData.change24h}%
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Active Trades</span>
-                    <span className="text-white">{marketData.activeTrades}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Avg. Price</span>
-                    <span className="text-white">{marketData.avgPrice} ETH</span>
-                  </div>
-                </div>
-              </div>
+
             </div>
           </div>
 
@@ -349,7 +306,7 @@ const Trading: React.FC = () => {
           <HowToTrade />
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 

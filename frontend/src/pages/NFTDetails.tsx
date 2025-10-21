@@ -8,10 +8,10 @@ const NFTDetails: React.FC = () => {
 
   const nft: MintedNFT | undefined = id
     ? getNFTById(id) ?? {
-        ...defaultNFT,
-        id: id,
-        name: `Carbon Credit NFT #${id}`,
-      }
+      ...defaultNFT,
+      id: id,
+      name: `Carbon Credit NFT #${id}`,
+    }
     : undefined;
 
   if (!id || !nft) {
@@ -104,7 +104,7 @@ const NFTDetails: React.FC = () => {
 
                 {/* Title */}
                 <h1 className="text-3xl font-bold text-white mb-2">{nft.name}</h1>
-                
+
                 {/* Token ID */}
                 <div className="text-gray-400 text-sm mb-6">
                   <span className="font-medium">Token ID:</span>{' '}
@@ -134,7 +134,7 @@ const NFTDetails: React.FC = () => {
                 {/* Description */}
                 <div className="mb-6">
                   <p className="text-gray-300 leading-relaxed">
-                    {nft.description || 
+                    {nft.description ||
                       'This NFT represents verified carbon credits tied to a real-world climate project. Ownership allows trading, offset claims, and on-chain provenance of environmental impact.'}
                   </p>
                 </div>
