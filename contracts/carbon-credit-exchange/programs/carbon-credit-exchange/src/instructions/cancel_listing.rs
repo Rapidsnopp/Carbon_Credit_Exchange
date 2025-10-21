@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Mint, Token, TokenAccount};
+use anchor_spl::token::{Mint, Token, TokenAccount};
 use crate::{state::*, error::ErrorCode};
 
 #[derive(Accounts)]
@@ -30,19 +30,10 @@ pub struct CancelListing<'info> {
 }
 
 pub fn handler(ctx: Context<CancelListing>) -> Result<()> {
-    // Thaw NFT khi cancel
-    let thaw_accounts = token::ThawAccount {
-        account: ctx.accounts.token_account.to_account_info(),
-        mint: ctx.accounts.mint.to_account_info(),
-        authority: ctx.accounts.owner.to_account_info(),
-    };
-
-    let thaw_ctx = CpiContext::new(
-        ctx.accounts.token_program.to_account_info(),
-        thaw_accounts,
-    );
-
-    token::thaw_account(thaw_ctx)?;
-
+    // ✅ Không cần thaw NFT vì chúng ta không freeze nó khi list
+    // Listing account sẽ tự động close và refund rent cho owner (do close = owner)
+    
+    msg!("Listing cancelled successfully for mint: {}", ctx.accounts.mint.key());
+    
     Ok(())
 }

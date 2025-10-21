@@ -17,7 +17,7 @@ const MPL_TOKEN_METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3
  */
 export const getExchangePDA = async (): Promise<[PublicKey, number]> => {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from('exchange')],
+    [Buffer.from('carbon_exchange')],
     solanaConfig.programId
   );
 };
