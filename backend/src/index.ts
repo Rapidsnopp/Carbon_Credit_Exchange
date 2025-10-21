@@ -1,8 +1,11 @@
+// Load environment variables FIRST before any imports
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import dotenv from 'dotenv';
 
 // Import routes
 import carbonCreditRoutes from './routes/carbonCreditRoutes';
@@ -13,9 +16,6 @@ import metadataRoutes from './routes/metadataRoutes';
 import { solanaConfig } from './config/solana.config';
 import { connectDB, createIndexes, checkDBHealth } from './config/database';
 import SolanaService from './services/solanaService';
-
-// Load environment variables
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
