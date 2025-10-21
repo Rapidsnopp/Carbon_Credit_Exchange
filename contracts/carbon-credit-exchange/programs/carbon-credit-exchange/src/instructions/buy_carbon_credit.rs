@@ -58,13 +58,16 @@ pub fn handler(ctx: Context<BuyCarbonCredit>) -> Result<()> {
     let listing = &ctx.accounts.listing;
     let price = listing.price;
 
-    // Verify NFT is frozen (still listed)
+    // ✅ CRITICAL: Verify seller vẫn còn NFT
+    // Vì chúng ta không freeze NFT, seller có thể đã transfer NFT đi
     require!(
-        ctx.accounts.seller_token_account.is_frozen(),
-        ErrorCode::NFTNotLocked
+        ctx.accounts.seller_token_account.amount >= 1,
+        ErrorCode::InvalidTokenBalance
     );
 
-    // Transfer SOL
+    msg!("Verified: Seller still owns the NFT");
+
+    // Transfer SOL từ buyer sang seller
     let buyer_info = &ctx.accounts.buyer.to_account_info();
     let seller_info = &ctx.accounts.seller.to_account_info();
 
@@ -79,21 +82,11 @@ pub fn handler(ctx: Context<BuyCarbonCredit>) -> Result<()> {
         &[buyer_info.clone(), seller_info.clone(), ctx.accounts.system_program.to_account_info()],
     )?;
 
-    // Thaw NFT before transfer
-    let thaw_accounts = token::ThawAccount {
-        account: ctx.accounts.seller_token_account.to_account_info(),
-        mint: ctx.accounts.mint.to_account_info(),
-        authority: ctx.accounts.seller.to_account_info(),
-    };
+    msg!("SOL transferred: {} lamports", price);
 
-    let thaw_ctx = CpiContext::new(
-        ctx.accounts.token_program.to_account_info(),
-        thaw_accounts,
-    );
+    // ✅ Không cần thaw vì NFT không bị freeze
 
-    token::thaw_account(thaw_ctx)?;
-
-    // Transfer NFT
+    // Transfer NFT từ seller sang buyer
     let transfer_accounts = token::Transfer {
         from: ctx.accounts.seller_token_account.to_account_info(),
         to: ctx.accounts.buyer_token_account.to_account_info(),
@@ -107,13 +100,9 @@ pub fn handler(ctx: Context<BuyCarbonCredit>) -> Result<()> {
 
     token::transfer(transfer_ctx, 1)?;
 
-    // Close listing
-    let listing_info = ctx.accounts.listing.to_account_info();
-    let dest_starting_lamports = seller_info.lamports();
-    **seller_info.lamports.borrow_mut() = dest_starting_lamports
-        .checked_add(listing_info.lamports())
-        .unwrap();
-    **listing_info.lamports.borrow_mut() = 0;
+    msg!("NFT transferred successfully");
+
+    // ✅ Listing account tự động close do close = seller (không cần manual close)
 
     emit!(SaleCompletedEvent {
         mint: ctx.accounts.mint.key(),

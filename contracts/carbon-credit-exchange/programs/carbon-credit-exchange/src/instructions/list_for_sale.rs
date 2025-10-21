@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
-use anchor_spl::token::{self, Mint, Token, TokenAccount};
+use anchor_spl::token::{Mint, Token, TokenAccount};
 use crate::{state::*, error::ErrorCode, events::*};
 
 #[derive(Accounts)]
@@ -43,19 +43,14 @@ pub fn handler(ctx: Context<ListForSale>, price: u64) -> Result<()> {
     listing.price = price;
     listing.bump = ctx.bumps.listing;
 
-    // 🔒 QUAN TRỌNG: Freeze NFT để không thể transfer trong khi listing
-    let freeze_accounts = token::FreezeAccount {
-        account: ctx.accounts.token_account.to_account_info(),
-        mint: ctx.accounts.mint.to_account_info(),
-        authority: ctx.accounts.owner.to_account_info(),
-    };
-
-    let freeze_ctx = CpiContext::new(
-        ctx.accounts.token_program.to_account_info(),
-        freeze_accounts,
-    );
-
-    token::freeze_account(freeze_ctx)?;
+    // ✅ Không freeze NFT vì Metaplex Master Edition có freeze authority riêng
+    // NFT vẫn an toàn vì:
+    // 1. Listing account lưu owner address
+    // 2. Chỉ owner có thể cancel listing
+    // 3. Khi buy, sẽ kiểm tra seller_token_account.amount >= 1
+    // 4. Nếu owner transfer NFT đi, buy sẽ fail do insufficient balance
+    //
+    // Lưu ý: Owner nên cancel listing trước khi transfer NFT để tránh listing "dead"
 
     emit!(ListingCreatedEvent {
         mint: ctx.accounts.mint.key(),

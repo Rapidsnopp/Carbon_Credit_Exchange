@@ -10,7 +10,7 @@ pub use error::*;
 pub use events::*;
 pub use instructions::*;
 
-declare_id!("G1oyFNSMSHRBPG6LWWpAMhJJNf23HWjNpq8FALJSUqs3");
+declare_id!("CjZ3Y485ryrigRSdD1ZhDmMYxxhcXv29J5sLU6icopND");
 
 #[program]
 pub mod carbon_credit_exchange {

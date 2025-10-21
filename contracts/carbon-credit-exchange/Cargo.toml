@@ -5,7 +5,7 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-# Nếu dùng Anchor 0.28.x hoặc 0.29.x
+# Anchor 0.29.0 - stable version (without idl-build to avoid spl-token conflicts)
 anchor-lang = { version = "0.29.0", features = ["init-if-needed"] }
 anchor-spl = "0.29.0"
 

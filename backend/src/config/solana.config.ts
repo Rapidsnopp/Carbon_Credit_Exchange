@@ -43,7 +43,7 @@ const loadAdminKeypair = (): Keypair | null => {
 
 export const getSolanaConfig = (): SolanaConfig => {
   const rpcUrl = process.env.SOLANA_RPC_URL || clusterApiUrl('devnet');
-  const programIdStr = process.env.PROGRAM_ID || 'G1oyFNSMSHRBPG6LWWpAMhJJNf23HWjNpq8FALJSUqs3';
+  const programIdStr = process.env.PROGRAM_ID || 'CjZ3Y485ryrigRSdD1ZhDmMYxxhcXv29J5sLU6icopND';
   
   const connection = new Connection(rpcUrl, 'confirmed');
   const programId = new PublicKey(programIdStr);
