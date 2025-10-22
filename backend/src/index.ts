@@ -11,6 +11,7 @@ import morgan from 'morgan';
 import carbonCreditRoutes from './routes/carbonCreditRoutes';
 import marketplaceRoutes from './routes/marketplaceRoutes';
 import metadataRoutes from './routes/metadataRoutes';
+import uploadRoutes from './routes/uploadRoutes';
 
 // Import services
 import { solanaConfig } from './config/solana.config';
@@ -64,6 +65,7 @@ app.get('/health', async (req: Request, res: Response) => {
 app.use('/api/carbon-credits', carbonCreditRoutes);
 app.use('/api/marketplace', marketplaceRoutes);
 app.use('/api/metadata', metadataRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Program info endpoint
 app.get('/api/program-info', async (req: Request, res: Response) => {
