@@ -1,28 +1,65 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Upload, FileText, CheckCircle, Sparkles, Shield, Award, Leaf } from 'lucide-react';
-import { ProjectDetails, MintedNFT } from "../../types"
+import { CarbonCreditType, MintedNFT } from "../../types/";
+import program from '../../services/solana'
+import metadata from '../../services/metadata';
+import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 
 export default function MintCredit() {
-    const [projectDetails, setProjectDetails] = useState<ProjectDetails>({
+    const { connection } = useConnection();
+    const wallet = useWallet();
+    const [projectDetails, setProjectDetails] = useState<CarbonCreditType>({
+        mint: '',
+        owner: '',
+
         projectName: '',
-        projectLocation: '',
-        projectType: '',
-        creditAmount: '',
-        creditStandard: '',
-        certificationBody: '',
-        verificationDate: '',
-        description: ''
+        location: { country: '', region: '', coordinates: { latitude: undefined, longitude: undefined } },
+
+        vintageYear: new Date().getFullYear(),
+        carbonAmount: 1,
+        verificationStandard: 'VCS',
+
+        metadata: {
+            name: '',
+            symbol: '',
+            uri: '',
+            description: '',
+            image: '',
+            attributes: [],
+        },
+
+        projectType: 'Other',
+        projectDescription: '',
+        projectDocuments: [],
+
+        verificationDetails: { verifier: '', verificationDate: undefined, certificateNumber: '', status: 'Pending' },
+
+        isListed: false,
+        listingPrice: 0,
+
+        isRetired: false,
+        retirementDetails: {},
+
+        views: 0,
+        favorites: 0,
+        status: 'Active',
     });
+
 
     const [isMinting, setIsMinting] = useState<boolean>(false);
     const [mintedNFT, setMintedNFT] = useState<MintedNFT | null>(null);
     const [uploadedImage, setUploadedImage] = useState<string | null>(null);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value } = e.target as HTMLInputElement;
+        const { name, value } = e.target;
+
+        // Nếu là số, parseInt
+        const numericFields = ['carbonAmount', 'vintageYear', 'listingPrice'];
+        const parsedValue = numericFields.includes(name) ? parseInt(value) || 0 : value;
+
         setProjectDetails(prev => ({
             ...prev,
-            [name]: value
+            [name]: parsedValue,
         }));
     };
 
@@ -39,29 +76,53 @@ export default function MintCredit() {
 
     const handleMint = async (e: React.FormEvent) => {
         e.preventDefault();
-        setIsMinting(true);
 
-        setTimeout(() => {
-            const mockNFT = {
-                id: Math.floor(Math.random() * 10000),
-                name: projectDetails.projectName,
-                tokenId: `CC-${Date.now()}`,
-                image: uploadedImage || 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=400&q=80',
-                attributes: [
-                    { trait_type: 'Project Name', value: projectDetails.projectName },
-                    { trait_type: 'Location', value: projectDetails.projectLocation },
-                    { trait_type: 'Type', value: projectDetails.projectType },
-                    { trait_type: 'Credits', value: projectDetails.creditAmount },
-                    { trait_type: 'Standard', value: projectDetails.creditStandard },
-                    { trait_type: 'Certification Body', value: projectDetails.certificationBody },
-                    { trait_type: 'Verification Date', value: projectDetails.verificationDate }
-                ]
+        if (!wallet?.publicKey) {
+            alert("Please connect your wallet first!");
+            return;
+        }
+
+        try {
+            setIsMinting(true);
+
+            // 1️⃣ Tạo metadata JSON từ projectDetails và uploadedImage
+            const metadataJSON = metadata.generateMetadata(projectDetails, uploadedImage);
+
+            // 2️⃣ Upload metadata lên IPFS/Arweave
+            const uploaded = await metadata.uploadMetadata(metadataJSON);
+
+            // 3️⃣ Chuẩn bị carbonData cho on-chain
+            const carbonData = {
+                projectName: projectDetails.projectName || "Unknown Project",
+                projectId: projectDetails.mint || `PROJECT_ID_${Date.now()}`,
+                vintageYear: Number(projectDetails.vintageYear) || new Date().getFullYear(),
+                metricTons: Number(projectDetails.carbonAmount) || 1,
+                validator: projectDetails.verificationDetails?.verifier || "Unknown",
+                standard: projectDetails.verificationStandard || "VCS",
+                projectType: projectDetails.projectType || "Other",
+                country: projectDetails.location.country || "Unknown",
             };
 
-            setMintedNFT(mockNFT);
+            // 4️⃣ Mint NFT bằng chương trình on-chain
+            const mintResult = await program.mintCarbonCredit(
+                connection,
+                wallet,
+                carbonData,
+                uploaded.uri,
+                projectDetails.projectName || "Carbon Credit NFT",
+                "CARBON"
+            );
+
+            console.log("✅ Mint successful:", mintResult);
+            alert("Mint successful!");
+        } catch (err) {
+            console.error("❌ Mint failed:", err);
+            alert("Mint failed! See console for details.");
+        } finally {
             setIsMinting(false);
-        }, 3000);
+        }
     };
+
 
     const getProjectTypeColor = (type: string) => {
         const colors = {
@@ -73,219 +134,181 @@ export default function MintCredit() {
         };
         return (colors as Record<string, string>)[type] || 'from-gray-500 to-gray-600';
     };
+
+    useEffect(() => {
+        if (wallet.publicKey) {
+            setProjectDetails(prev => ({
+                ...prev,
+                walletAddress: wallet.publicKey?.toBase58() || '',
+            }));
+        }
+    }, [wallet.publicKey]);
+
     return (
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
             {/* Minting Form - Takes 3 columns */}
-            <div className="lg:col-span-3">
-                <div className="bg-gray-800/50 backdrop-blur-sm rounded-3xl border border-gray-700/50 p-8 shadow-2xl">
-                    <div className="flex items-center gap-3 mb-8">
-                        <div className="w-12 h-12 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg shadow-teal-500/50">
-                            <FileText className="w-6 h-6 text-white" />
-                        </div>
-                        <div>
-                            <h2 className="text-2xl font-bold text-white">Project Details</h2>
-                            <p className="text-gray-400 text-sm">Fill in your carbon credit information</p>
-                        </div>
+            <div className="lg:col-span-3 border border-gray-700/50 rounded-3xl p-8 bg-gray-800/50 backdrop-blur-sm shadow-2xl">
+                <form onSubmit={handleMint} className="space-y-6">
+                    {/* Project Image */}
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-300 mb-3">Project Image</label>
+                        <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" id="image-upload" />
+                        <label htmlFor="image-upload" className="flex flex-col items-center justify-center w-full h-48 bg-gray-700/30 border-2 border-dashed border-gray-600 rounded-2xl cursor-pointer">
+                            {uploadedImage ? (
+                                <img src={uploadedImage} alt="Preview" className="w-full h-full object-cover rounded-2xl" />
+                            ) : (
+                                <div className="text-center text-gray-400">
+                                    <Upload className="w-12 h-12 mx-auto mb-3" />
+                                    <p>Click to upload project image</p>
+                                </div>
+                            )}
+                        </label>
                     </div>
 
-                    <form onSubmit={handleMint}>
-                        <div className="space-y-6">
-                            {/* Image Upload Section */}
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-300 mb-3">
-                                    Project Image
-                                </label>
-                                <div className="relative">
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={handleImageUpload}
-                                        className="hidden"
-                                        id="image-upload"
-                                    />
-                                    <label
-                                        htmlFor="image-upload"
-                                        className="flex flex-col items-center justify-center w-full h-48 bg-gray-700/30 border-2 border-dashed border-gray-600 rounded-2xl cursor-pointer hover:bg-gray-700/50 hover:border-teal-500/50 transition-all duration-300"
-                                    >
-                                        {uploadedImage ? (
-                                            <img src={uploadedImage as string} alt="Preview" className="w-full h-full object-cover rounded-2xl" />
-                                        ) : (
-                                            <div className="text-center">
-                                                <Upload className="w-12 h-12 text-gray-500 mx-auto mb-3" />
-                                                <p className="text-gray-400 mb-1">Click to upload project image</p>
-                                                <p className="text-gray-500 text-xs">PNG, JPG up to 10MB</p>
-                                            </div>
-                                        )}
-                                    </label>
-                                </div>
-                            </div>
+                    {/* Project Name */}
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-300 mb-2">Project Name *</label>
+                        <input
+                            type="text"
+                            name="projectName"
+                            value={projectDetails.projectName}
+                            onChange={handleInputChange}
+                            required
+                            className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white"
+                            placeholder="e.g., Amazon Forest Protection"
+                        />
+                    </div>
 
-                            {/* Two Column Layout */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-300 mb-2">
-                                        Project Name *
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="projectName"
-                                        value={projectDetails.projectName}
-                                        onChange={handleInputChange}
-                                        required
-                                        className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
-                                        placeholder="e.g., Amazon Forest Protection"
-                                    />
-                                </div>
+                    {/* Project Location */}
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-300 mb-2">Project Country *</label>
+                        <input
+                            type="text"
+                            name="location.country"
+                            value={projectDetails.location.country}
+                            onChange={e =>
+                                setProjectDetails(prev => ({
+                                    ...prev,
+                                    location: { ...prev.location, country: e.target.value },
+                                }))
+                            }
+                            required
+                            className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white"
+                            placeholder="e.g., Brazil"
+                        />
+                    </div>
 
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-300 mb-2">
-                                        Project Location *
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="projectLocation"
-                                        value={projectDetails.projectLocation}
-                                        onChange={handleInputChange}
-                                        required
-                                        className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
-                                        placeholder="e.g., Brazil, South America"
-                                    />
-                                </div>
-                            </div>
+                    {/* Project Type */}
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-300 mb-2">Project Type *</label>
+                        <select
+                            name="projectType"
+                            value={projectDetails.projectType}
+                            onChange={handleInputChange}
+                            required
+                            className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white"
+                        >
+                            <option value="Forestry">🌳 Forestry</option>
+                            <option value="Renewable Energy">⚡ Renewable Energy</option>
+                            <option value="Agriculture">🌾 Agriculture</option>
+                            <option value="Waste Management">🗑️ Waste Management</option>
+                            <option value="Industrial">🏭 Industrial</option>
+                            <option value="Other">📦 Other</option>
+                        </select>
+                    </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-300 mb-2">
-                                        Project Type *
-                                    </label>
-                                    <select
-                                        name="projectType"
-                                        value={projectDetails.projectType}
-                                        onChange={handleInputChange}
-                                        required
-                                        className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
-                                    >
-                                        <option value="">Select project type</option>
-                                        <option value="afforestation">🌲 Afforestation</option>
-                                        <option value="reforestation">🌳 Reforestation</option>
-                                        <option value="renewable-energy">⚡ Renewable Energy</option>
-                                        <option value="maritime">🌊 Marine Conservation</option>
-                                        <option value="other">📦 Other</option>
-                                    </select>
-                                </div>
+                    {/* Carbon Amount */}
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-300 mb-2">Carbon Amount (tCO2e) *</label>
+                        <input
+                            type="number"
+                            name="carbonAmount"
+                            value={projectDetails.carbonAmount}
+                            onChange={handleInputChange}
+                            required
+                            min={1}
+                            className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white"
+                        />
+                    </div>
 
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-300 mb-2">
-                                        Credit Amount *
-                                    </label>
-                                    <input
-                                        type="number"
-                                        name="creditAmount"
-                                        value={projectDetails.creditAmount}
-                                        onChange={handleInputChange}
-                                        required
-                                        min="1"
-                                        className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
-                                        placeholder="e.g., 1000"
-                                    />
-                                </div>
-                            </div>
+                    {/* Verification Standard */}
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-300 mb-2">Verification Standard *</label>
+                        <select
+                            name="verificationStandard"
+                            value={projectDetails.verificationStandard}
+                            onChange={handleInputChange}
+                            required
+                            className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white"
+                        >
+                            <option value="VCS">VCS</option>
+                            <option value="Gold Standard">Gold Standard</option>
+                            <option value="CDM">CDM</option>
+                            <option value="CAR">CAR</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-300 mb-2">
-                                        Credit Standard *
-                                    </label>
-                                    <select
-                                        name="creditStandard"
-                                        value={projectDetails.creditStandard}
-                                        onChange={handleInputChange}
-                                        required
-                                        className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
-                                    >
-                                        <option value="">Select standard</option>
-                                        <option value="vcs">VCS (Verified Carbon Standard)</option>
-                                        <option value="ccp">CCP (Climate Community)</option>
-                                        <option value="gold">Gold Standard</option>
-                                        <option value="ccbs">CCB Standard</option>
-                                    </select>
-                                </div>
+                    {/* Verification Date */}
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-300 mb-2">Verification Date</label>
+                        <input
+                            type="date"
+                            name="verificationDetails.verificationDate"
+                            value={projectDetails.verificationDetails?.verificationDate?.toISOString().split('T')[0] || ''}
+                            onChange={e =>
+                                setProjectDetails(prev => ({
+                                    ...prev,
+                                    verificationDetails: { ...prev.verificationDetails, verificationDate: new Date(e.target.value) },
+                                }))
+                            }
+                            className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white"
+                        />
+                    </div>
 
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-300 mb-2">
-                                        Verification Date *
-                                    </label>
-                                    <input
-                                        type="date"
-                                        name="verificationDate"
-                                        value={projectDetails.verificationDate}
-                                        onChange={handleInputChange}
-                                        required
-                                        className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
-                                    />
-                                </div>
-                            </div>
+                    {/* Vintage Year */}
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-300 mb-2">Vintage Year</label>
+                        <input
+                            type="number"
+                            name="vintageYear"
+                            value={projectDetails.vintageYear}
+                            onChange={handleInputChange}
+                            min={2000}
+                            max={new Date().getFullYear()}
+                            className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white"
+                        />
+                    </div>
 
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-300 mb-2">
-                                    Certification Body *
-                                </label>
-                                <input
-                                    type="text"
-                                    name="certificationBody"
-                                    value={projectDetails.certificationBody}
-                                    onChange={handleInputChange}
-                                    required
-                                    className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
-                                    placeholder="e.g., Verra Registry"
-                                />
-                            </div>
+                    {/* Project Description */}
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-300 mb-2">Project Description</label>
+                        <textarea
+                            name="projectDescription"
+                            value={projectDetails.projectDescription}
+                            onChange={handleInputChange}
+                            rows={4}
+                            className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white resize-none"
+                        ></textarea>
+                    </div>
 
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-300 mb-2">
-                                    Project Description
-                                </label>
-                                <textarea
-                                    name="description"
-                                    value={projectDetails.description}
-                                    onChange={handleInputChange}
-                                    rows={4}
-                                    className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all resize-none"
-                                    placeholder="Describe the environmental impact and goals of this project..."
-                                ></textarea>
-                            </div>
-
-                            <button
-                                type="submit"
-                                disabled={isMinting}
-                                className={`w-full py-4 px-6 rounded-xl font-bold text-lg transition-all duration-300 ${isMinting
-                                    ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                                    : 'bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white shadow-lg shadow-teal-500/50 hover:shadow-teal-500/70 hover:transform hover:scale-[1.02]'
-                                    }`}
-                            >
-                                {isMinting ? (
-                                    <span className="flex items-center justify-center">
-                                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        Minting Your NFT...
-                                    </span>
-                                ) : (
-                                    <span className="flex items-center justify-center gap-2">
-                                        <Sparkles className="w-5 h-5" />
-                                        Mint Carbon Credit NFT
-                                    </span>
-                                )}
-                            </button>
-                        </div>
-                    </form>
-                </div>
+                    {/* Submit */}
+                    <button
+                        type="submit"
+                        disabled={isMinting}
+                        className={`w-full py-4 px-6 rounded-xl font-bold text-lg ${isMinting
+                            ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                            : 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white'
+                            }`}
+                    >
+                        {isMinting ? 'Minting...' : 'Mint Carbon Credit NFT'}
+                    </button>
+                </form>
             </div>
 
             {/* Preview/Result Section - Takes 2 columns */}
             <div className="lg:col-span-2">
-                <div className="sticky top-24">
+                <div className="top-24">
                     {mintedNFT ? (
                         <div className="bg-gray-800/50 backdrop-blur-sm rounded-3xl border border-gray-700/50 p-8 shadow-2xl">
                             <div className="text-center mb-8">
@@ -335,14 +358,40 @@ export default function MintCredit() {
                                     onClick={() => {
                                         setMintedNFT(null);
                                         setProjectDetails({
+                                            mint: '',
+                                            owner: '',
+
                                             projectName: '',
-                                            projectLocation: '',
-                                            projectType: '',
-                                            creditAmount: '',
-                                            creditStandard: '',
-                                            certificationBody: '',
-                                            verificationDate: '',
-                                            description: ''
+                                            location: { country: '', region: '', coordinates: { latitude: undefined, longitude: undefined } },
+
+                                            vintageYear: new Date().getFullYear(),
+                                            carbonAmount: 1,
+                                            verificationStandard: 'VCS',
+
+                                            metadata: {
+                                                name: '',
+                                                symbol: '',
+                                                uri: '',
+                                                description: '',
+                                                image: '',
+                                                attributes: [],
+                                            },
+
+                                            projectType: 'Other',
+                                            projectDescription: '',
+                                            projectDocuments: [],
+
+                                            verificationDetails: { verifier: '', verificationDate: undefined, certificateNumber: '', status: 'Pending' },
+
+                                            isListed: false,
+                                            listingPrice: 0,
+
+                                            isRetired: false,
+                                            retirementDetails: {},
+
+                                            views: 0,
+                                            favorites: 0,
+                                            status: 'Active',
                                         });
                                         setUploadedImage(null);
                                     }}
@@ -355,46 +404,74 @@ export default function MintCredit() {
                     ) : (
                         <div className="bg-gray-800/50 backdrop-blur-sm rounded-3xl border border-gray-700/50 p-8 shadow-2xl">
                             <div className="flex items-center gap-3 mb-6">
-                                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/50">
-                                </div>
+                                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/50"></div>
                                 <div>
                                     <h2 className="text-2xl font-bold text-white">Live Preview</h2>
                                     <p className="text-gray-400 text-sm">See your NFT as you create it</p>
                                 </div>
                             </div>
 
-                            {projectDetails.projectName || projectDetails.projectType || uploadedImage ? (
+                            {(projectDetails.projectName || projectDetails.projectType || uploadedImage) ? (
                                 <div className="bg-gradient-to-br from-gray-700/50 to-gray-800/50 rounded-2xl p-6 border border-gray-600/50">
-                                    <div className={`relative aspect-square bg-gradient-to-br ${getProjectTypeColor(projectDetails.projectType)} rounded-xl mb-4 overflow-hidden flex items-center justify-center`}>
+
+                                    {/* Image / Icon */}
+                                    <div className={`relative aspect-square bg-gradient-to-br ${getProjectTypeColor(projectDetails?.projectType || 'Other')} rounded-xl mb-4 overflow-hidden flex items-center justify-center`}>
                                         {uploadedImage ? (
-                                            <img src={uploadedImage as string} alt="Preview" className="w-full h-full object-cover" />
+                                            <img src={uploadedImage as string} alt="Project Preview" className="w-full h-full object-cover" />
                                         ) : (
                                             <Leaf className="w-24 h-24 text-white/30" />
                                         )}
                                     </div>
 
-                                    <h3 className="text-xl font-bold text-white mb-2">
+                                    {/* Project Name */}
+                                    <h3 className="text-xl font-bold text-white mb-1">
                                         {projectDetails.projectName || 'Your Project Name'}
                                     </h3>
-                                    <p className="text-gray-400 text-sm mb-4">
-                                        {projectDetails.projectLocation || 'Project Location'}
+
+                                    {/* Location */}
+                                    <p className="text-gray-400 text-sm mb-3">
+                                        {projectDetails.location?.country || 'Project Location'}
                                     </p>
 
-                                    {projectDetails.creditAmount && (
+                                    {/* Credit Amount */}
+                                    {projectDetails.carbonAmount != null && (
                                         <div className="bg-gray-900/50 rounded-lg p-3 mb-3">
                                             <div className="flex justify-between items-center">
-                                                <span className="text-gray-400 text-sm">Carbon Credits</span>
-                                                <span className="text-teal-400 font-bold">{projectDetails.creditAmount}</span>
+                                                <span className="text-gray-400 text-sm">Carbon Credits (tCO2e)</span>
+                                                <span className="text-teal-400 font-bold">{projectDetails.carbonAmount}</span>
                                             </div>
                                         </div>
                                     )}
 
-                                    {projectDetails.creditStandard && (
-                                        <div className="inline-flex items-center gap-2 bg-teal-500/20 border border-teal-500/30 rounded-full px-4 py-2">
+                                    {/* Verification Standard */}
+                                    {projectDetails.verificationStandard && (
+                                        <div className="inline-flex items-center gap-2 bg-teal-500/20 border border-teal-500/30 rounded-full px-4 py-2 mb-2">
                                             <Award className="w-4 h-4 text-teal-400" />
-                                            <span className="text-teal-300 text-sm font-medium">{projectDetails.creditStandard}</span>
+                                            <span className="text-teal-300 text-sm font-medium">{projectDetails.verificationStandard}</span>
                                         </div>
                                     )}
+
+                                    {/* Vintage Year */}
+                                    {projectDetails.vintageYear && (
+                                        <div className="text-gray-400 text-sm mb-1">
+                                            Vintage Year: <span className="text-white">{projectDetails.vintageYear}</span>
+                                        </div>
+                                    )}
+
+                                    {/* Project Type */}
+                                    {projectDetails.projectType && (
+                                        <div className="text-gray-400 text-sm mb-1">
+                                            Project Type: <span className="text-white">{projectDetails.projectType}</span>
+                                        </div>
+                                    )}
+
+                                    {/* Optional Description */}
+                                    {projectDetails.projectDescription && (
+                                        <p className="text-gray-400 text-sm mt-2 line-clamp-3">
+                                            {projectDetails.projectDescription}
+                                        </p>
+                                    )}
+
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center justify-center py-16">
@@ -406,6 +483,7 @@ export default function MintCredit() {
                                 </div>
                             )}
                         </div>
+
                     )}
                 </div>
             </div>
