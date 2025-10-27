@@ -40,7 +40,7 @@ export type TradingAsset = {
     change: number;
     image: string;
     category: string;
-    mint?: string; // Optional mint address for blockchain operations
+    mint?: string; // Optional mint address for blockchain NFTs
 };
 
 export type Stats = {

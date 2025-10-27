@@ -32,6 +32,7 @@ export const useWalletContext = () => {
 };
 
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
+
   const network = WalletAdapterNetwork.Devnet;
   const endpoint = useMemo(() => clusterApiUrl(network), [network]);
   const wallets = useMemo(
@@ -41,7 +42,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <ConnectionProvider endpoint={endpoint}>
-      <SolanaWalletProvider wallets={wallets} autoConnect>
+      <SolanaWalletProvider wallets={wallets} autoConnect={false}>
         <WalletModalProvider>
           <WalletContextInner>{children}</WalletContextInner>
         </WalletModalProvider>

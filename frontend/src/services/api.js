@@ -94,7 +94,7 @@ class ApiService {
   async verifyCarbonCredit(mintAddress) {
     return this.request("/api/carbon-credits/verify", {
       method: "POST",
-      body: JSON.stringify({ mintAddress }),
+      body: JSON.stringify({ mint: mintAddress }), // Backend expects "mint" field
     });
   }
 

@@ -23,6 +23,9 @@ import SolanaService from '../services/solanaService';
  */
 export const createMetadata = async (req: Request, res: Response) => {
   try {
+    console.log('📝 Creating metadata for NFT...');
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    
     const {
       mint,
       owner,
@@ -33,48 +36,117 @@ export const createMetadata = async (req: Request, res: Response) => {
       verificationStandard,
       projectType,
       projectDescription,
-      // ... other fields
+      verifier, // Add verifier field
+      metadata,
     } = req.body;
     
-    // TODO: Validate required fields
+    // Validate required fields
     if (!mint || !owner || !projectName) {
+      console.error('❌ Missing required fields');
       return res.status(400).json({
         success: false,
-        error: 'Missing required fields',
+        error: 'Missing required fields: mint, owner, projectName',
       });
     }
     
-    // TODO: Check if mint already exists
+    // Helper function to normalize enum values (capitalize first letter)
+    const normalizeEnumValue = (value: string): string => {
+      if (!value) return value;
+      return value.charAt(0).toUpperCase() + value.slice(1);
+    };
+    
+    // Helper function to normalize verification standard (handle acronyms)
+    const normalizeVerificationStandard = (value: string): string => {
+      if (!value) return 'Other';
+      // Handle known acronyms
+      const upperValue = value.toUpperCase();
+      const validAcronyms = ['VCS', 'CDM', 'CAR', 'CCP'];
+      if (validAcronyms.includes(upperValue)) {
+        return upperValue;
+      }
+      // Handle full names (capitalize each word)
+      if (value.toLowerCase() === 'gold standard') return 'Gold Standard';
+      if (value.toLowerCase() === 'verra') return 'Verra';
+      // Default to 'Other' for unknown values
+      return 'Other';
+    };
+    
+    // Normalize enum values to match schema expectations
+    const normalizedVerificationStandard = normalizeVerificationStandard(verificationStandard);
+    const normalizedProjectType = projectType 
+      ? normalizeEnumValue(projectType) 
+      : 'Other';
+    
+    console.log('🔄 Normalized values:');
+    console.log(`  verificationStandard: "${verificationStandard}" → "${normalizedVerificationStandard}"`);
+    console.log(`  projectType: "${projectType}" → "${normalizedProjectType}"`);
+    
+    // Check if mint already exists
     const existing = await CarbonCredit.findOne({ mint });
     if (existing) {
-      return res.status(409).json({
-        success: false,
-        error: 'Metadata already exists for this mint',
+      console.log('⚠️ Metadata already exists, updating instead...');
+      // Update existing record instead of returning error
+      existing.owner = owner;
+      existing.projectName = projectName;
+      if (location) existing.location = location;
+      if (vintageYear) existing.vintageYear = vintageYear;
+      if (carbonAmount) existing.carbonAmount = carbonAmount;
+      if (verificationStandard) existing.verificationStandard = normalizedVerificationStandard as any;
+      if (projectType) existing.projectType = normalizedProjectType as any;
+      if (projectDescription) existing.projectDescription = projectDescription;
+      if (verifier) {
+        if (!existing.verificationDetails) {
+          existing.verificationDetails = {
+            verifier: verifier,
+            status: 'Pending',
+          } as any;
+        } else {
+          existing.verificationDetails.verifier = verifier;
+        }
+      }
+      if (metadata) existing.metadata = metadata;
+      
+      await existing.save();
+      
+      return res.status(200).json({
+        success: true,
+        data: existing,
+        message: 'Metadata updated',
       });
     }
     
-    // TODO: Implement metadata creation
+    // Create new carbon credit metadata
     const carbonCredit = new CarbonCredit({
       mint,
       owner,
       projectName,
-      location,
-      vintageYear,
-      carbonAmount,
-      verificationStandard,
-      projectType,
-      projectDescription,
-      // ... map all fields
+      location: location || { country: 'Unknown' },
+      vintageYear: vintageYear || new Date().getFullYear(),
+      carbonAmount: carbonAmount || 0,
+      verificationStandard: normalizedVerificationStandard,
+      projectType: normalizedProjectType,
+      projectDescription: projectDescription || '',
+      verificationDetails: verifier ? {
+        verifier: verifier,
+        status: 'Pending',
+      } : undefined,
+      metadata: metadata || {},
     });
     
     await carbonCredit.save();
+    console.log('✅ Metadata saved to MongoDB');
     
     res.status(201).json({
       success: true,
       data: carbonCredit,
+      message: 'Metadata created successfully',
     });
   } catch (error: any) {
-    console.error('Error creating metadata:', error);
+    console.error('❌ Error creating metadata:', error);
+    console.error('Error details:', error.message);
+    if (error.errors) {
+      console.error('Validation errors:', error.errors);
+    }
     res.status(500).json({
       success: false,
       error: 'Failed to create metadata',

@@ -1,64 +1,80 @@
 import { Leaf, Globe, TrendingUp, Award } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Stats } from '../../types';
-import { getImpactStats } from "../../services"
+import { getImpactStats } from '../../services';
 
 export default function ImpactStats() {
     const [stats, setStats] = useState<Stats>({
         totalCredits: 0,
         verifiedProjects: 0,
         treesPreserved: 0,
-        co2Offset: 0
+        co2Offset: 0,
     });
+
     useEffect(() => {
-        async function fetchStats() {
-            const result = await getImpactStats();
-            const data = {
-                totalCredits: result?.data?.activeListings ?? 0,
-                verifiedProjects: result?.data?.totalMinted ?? 0,
-                treesPreserved: result?.data?.treesPreserved ?? 0,
-                co2Offset: result?.data?.co2Offset ?? 0
-            }
-            if (data) setStats(data);
-        }
-        fetchStats();
+        let timers: Array<number | ReturnType<typeof setInterval>> = [];
 
-        const targetValues: Stats = {
-            totalCredits: stats.totalCredits,
-            verifiedProjects: stats.verifiedProjects,
-            treesPreserved: stats.treesPreserved,
-            co2Offset: stats.co2Offset
+        const animateValue = (
+            start: number,
+            end: number,
+            duration: number,
+            onUpdate: (val: number) => void
+        ) => {
+            const range = end - start;
+            if (range === 0) {
+                onUpdate(end);
+                return null;
+            }
+            const stepTime = Math.max(Math.floor(duration / Math.abs(range)), 16);
+            let current = start;
+            const increment = range > 0 ? 1 : -1;
+
+            const timer = setInterval(() => {
+                current += increment;
+                onUpdate(current);
+                if ((increment > 0 && current >= end) || (increment < 0 && current <= end)) {
+                    clearInterval(timer);
+                }
+            }, stepTime);
+
+            return timer;
         };
 
-        const duration = 2000;
-        const steps = 60;
-        const interval = duration / steps;
+        const fetchAndAnimate = async () => {
+            try {
+                const response = await getImpactStats();
+                const data = response?.data ?? {};
 
-        const increment = {
-            totalCredits: targetValues.totalCredits / steps,
-            verifiedProjects: targetValues.verifiedProjects / steps,
-            treesPreserved: targetValues.treesPreserved / steps,
-            co2Offset: targetValues.co2Offset / steps
+                // Map backend fields to UI counters with sensible fallbacks
+                const totalCredits = Number(data.activeListings ?? data.totalMinted ?? 0);
+                const verifiedProjects = Number(data.totalMinted ?? data.activeListings ?? 0);
+                const treesPreserved = Number(data.treesPreserved ?? totalCredits * 150);
+                const co2Offset = Number(data.co2Offset ?? totalCredits * 10);
+
+                // Animate each counter
+                timers.push(
+                    animateValue(0, totalCredits, 1800, (val) => setStats((s: Stats) => ({ ...s, totalCredits: val }))) as any
+                );
+                timers.push(
+                    animateValue(0, verifiedProjects, 1800, (val) => setStats((s: Stats) => ({ ...s, verifiedProjects: val }))) as any
+                );
+                timers.push(
+                    animateValue(0, treesPreserved, 1800, (val) => setStats((s: Stats) => ({ ...s, treesPreserved: val }))) as any
+                );
+                timers.push(
+                    animateValue(0, co2Offset, 1800, (val) => setStats((s: Stats) => ({ ...s, co2Offset: val }))) as any
+                );
+            } catch (error) {
+                console.error('Failed to fetch stats:', error);
+                // Leave defaults as-is on error
+            }
         };
 
-        let currentStep = 0;
-        const timer = setInterval(() => {
-            setStats(prev => ({
-                totalCredits: Math.min(Math.floor(prev.totalCredits + increment.totalCredits), targetValues.totalCredits),
-                verifiedProjects: Math.min(Math.floor(prev.verifiedProjects + increment.verifiedProjects), targetValues.verifiedProjects),
-                treesPreserved: Math.min(Math.floor(prev.treesPreserved + increment.treesPreserved), targetValues.treesPreserved),
-                co2Offset: Math.min(Math.floor(prev.co2Offset + increment.co2Offset), targetValues.co2Offset)
-            }));
+        fetchAndAnimate();
 
-            currentStep++;
-            if (currentStep >= steps) {
-                clearInterval(timer);
-                setStats(targetValues);
-            }
-        }, interval);
-
-        return () => clearInterval(timer);
+        return () => timers.forEach((t) => t && clearInterval(t as any));
     }, []);
+
     return (
         <section className="relative py-20 overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-teal-600/10 via-cyan-600/10 to-blue-600/10"></div>
@@ -75,9 +91,7 @@ export default function ImpactStats() {
                         <div className="flex items-center justify-center w-14 h-14 bg-teal-500/20 rounded-2xl mb-4">
                             <TrendingUp className="w-7 h-7 text-teal-400" />
                         </div>
-                        <div className="text-4xl font-bold text-white mb-2">
-                            {stats.totalCredits.toLocaleString()}
-                        </div>
+                        <div className="text-4xl font-bold text-white mb-2">{stats.totalCredits.toLocaleString()}</div>
                         <div className="text-gray-400 font-medium">Carbon Credits Traded</div>
                     </div>
 
@@ -85,9 +99,7 @@ export default function ImpactStats() {
                         <div className="flex items-center justify-center w-14 h-14 bg-cyan-500/20 rounded-2xl mb-4">
                             <Award className="w-7 h-7 text-cyan-400" />
                         </div>
-                        <div className="text-4xl font-bold text-white mb-2">
-                            {stats.verifiedProjects.toLocaleString()}
-                        </div>
+                        <div className="text-4xl font-bold text-white mb-2">{stats.verifiedProjects.toLocaleString()}</div>
                         <div className="text-gray-400 font-medium">Verified Projects</div>
                     </div>
 
@@ -95,9 +107,7 @@ export default function ImpactStats() {
                         <div className="flex items-center justify-center w-14 h-14 bg-emerald-500/20 rounded-2xl mb-4">
                             <Leaf className="w-7 h-7 text-emerald-400" />
                         </div>
-                        <div className="text-4xl font-bold text-white mb-2">
-                            {stats.treesPreserved.toLocaleString()}
-                        </div>
+                        <div className="text-4xl font-bold text-white mb-2">{stats.treesPreserved.toLocaleString()}</div>
                         <div className="text-gray-400 font-medium">Trees Preserved</div>
                     </div>
 
@@ -105,13 +115,11 @@ export default function ImpactStats() {
                         <div className="flex items-center justify-center w-14 h-14 bg-blue-500/20 rounded-2xl mb-4">
                             <Globe className="w-7 h-7 text-blue-400" />
                         </div>
-                        <div className="text-4xl font-bold text-white mb-2">
-                            {stats.co2Offset.toLocaleString()}
-                        </div>
+                        <div className="text-4xl font-bold text-white mb-2">{stats.co2Offset.toLocaleString()}</div>
                         <div className="text-gray-400 font-medium">CO₂ Tons Offset</div>
                     </div>
                 </div>
             </div>
         </section>
-    )
+    );
 }

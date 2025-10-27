@@ -11,6 +11,7 @@ import morgan from 'morgan';
 import carbonCreditRoutes from './routes/carbonCreditRoutes';
 import marketplaceRoutes from './routes/marketplaceRoutes';
 import metadataRoutes from './routes/metadataRoutes';
+import uploadRoutes from './routes/uploadRoutes';
 
 // Import services
 import { solanaConfig } from './config/solana.config';
@@ -21,10 +22,14 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
-app.use(helmet()); // Security headers
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+})); // Security headers
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173'],
+  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173', 'http://localhost:5174'],
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(morgan('dev')); // Logging
 app.use(express.json()); // Body parser
@@ -64,6 +69,7 @@ app.get('/health', async (req: Request, res: Response) => {
 app.use('/api/carbon-credits', carbonCreditRoutes);
 app.use('/api/marketplace', marketplaceRoutes);
 app.use('/api/metadata', metadataRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Program info endpoint
 app.get('/api/program-info', async (req: Request, res: Response) => {

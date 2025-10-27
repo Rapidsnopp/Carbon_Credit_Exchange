@@ -60,8 +60,8 @@ const CarbonCreditSchema = new Schema(
     verificationStandard: {
       type: String,
       required: true,
-      enum: ['VCS', 'Gold Standard', 'CDM', 'CAR', 'Other'],
-      // TODO: Add more standards as needed
+      enum: ['VCS', 'Gold Standard', 'CDM', 'CAR', 'CCP', 'Verra', 'Other'],
+      // Add more standards as needed
     },
     
     // Metadata
@@ -89,6 +89,8 @@ const CarbonCreditSchema = new Schema(
         'Agriculture',
         'Waste Management',
         'Industrial',
+        'Afforestation',
+        'Reforestation',
         'Other',
       ],
       // TODO: Customize project types
