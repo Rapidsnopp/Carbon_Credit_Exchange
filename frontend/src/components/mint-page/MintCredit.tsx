@@ -6,23 +6,8 @@ import { ProjectDetails, MintedNFT } from "../../types"; // Giữ nguyên types 
 import api from '../../lib/axios'; // Import axios instance
 import { useConnection } from '@solana/wallet-adapter-react';
 import { useAnchorWallet } from '@solana/wallet-adapter-react'; // Hook quan trọng
-import {
-    Keypair,
-    Transaction,
-    SystemProgram,
-    PublicKey,
-    sendAndConfirmTransaction,
-} from "@solana/web3.js";
-import {
-    createMint,
-    getOrCreateAssociatedTokenAccount,
-    mintTo,
-    TOKEN_PROGRAM_ID,
-} from "@solana/spl-token";
-import {
-    createCreateMetadataAccountV3Instruction,
-    PROGRAM_ID as TOKEN_METADATA_PROGRAM_ID,
-} from "@metaplex-foundation/mpl-token-metadata";
+import { PublicKey } from "@solana/web3.js";
+import { Metaplex, walletAdapterIdentity } from "@metaplex-foundation/js";
 // ------------------------------
 
 
@@ -87,17 +72,25 @@ export default function MintCredit() {
             const payer = anchorWallet; // Ví của bạn
 
             // --- BƯỚC 1: Upload ảnh lên IPFS (qua backend) ---
+            console.log("📤 Bắt đầu upload ảnh...", imageFile);
             const formData = new FormData();
             formData.append('image', imageFile);
-            const uploadRes = await api.post('/api/upload/image', formData, {
+            
+            console.log("🌐 Gọi API upload...");
+            const uploadRes = await api.post('/upload/image', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
+            
+            console.log("✅ Response từ backend:", uploadRes.data);
+            
+            if (!uploadRes.data.success) {
+                throw new Error(uploadRes.data.error || 'Upload ảnh thất bại');
+            }
+            
             const imageUrl = uploadRes.data.imageUrl; // (vd: "ipfs://Qm...")
-            console.log("Image uploaded:", imageUrl);
+            console.log("✅ Image uploaded:", imageUrl);
 
-            // --- BƯỚC 2: (TODO) Tạo và Upload file JSON metadata ---
-            // Bạn cần 1 endpoint backend mới (`POST /api/upload/json`) để upload file JSON này
-            // Tạm thời, chúng ta sẽ dùng 1 metadataUri giả
+            // --- BƯỚC 2: Upload JSON metadata lên IPFS ---
             const metadataJson = {
                 name: projectDetails.projectName,
                 description: projectDetails.description,
@@ -109,86 +102,51 @@ export default function MintCredit() {
                     { trait_type: 'Standard', value: projectDetails.creditStandard },
                 ]
             };
-            // const metaUploadRes = await api.post('/api/upload/json', metadataJson);
-            // const metadataUri = metaUploadRes.data.metadataUri;
             
-            // !!! DÙNG TẠM CHO HACKATHON !!!
-            const metadataUri = "https://arweave.net/12345.json"; // (Đây là URI của file JSON, không phải ảnh)
-            console.log("Metadata URI:", metadataUri);
-
-
-            // --- BƯỚC 3: Mint NFT trên Solana (Metaplex) ---
-            // Đây là logic từ file `mintNft.ts` của bạn, đã được chuyển đổi
+            console.log("📤 Upload metadata JSON...");
+            const metaUploadRes = await api.post('/upload/json', metadataJson);
             
-            // 3a. Tạo Mint
-            const mintKeypair = Keypair.generate();
-            const mint = await createMint(
-                connection,
-                payer, // Payer
-                payer.publicKey, // Mint Authority
-                payer.publicKey, // Freeze Authority
-                0 // Decimals (0 cho NFT)
-            );
-            console.log("Mint address:", mint.toBase58());
+            if (!metaUploadRes.data.success) {
+                throw new Error(metaUploadRes.data.error || 'Upload metadata thất bại');
+            }
+            
+            const metadataUri = metaUploadRes.data.metadataUri;
+            console.log("✅ Metadata URI:", metadataUri);
 
-            // 3b. Tạo Associated Token Account (ATA)
-            const ata = await getOrCreateAssociatedTokenAccount(connection, payer, mint, payer.publicKey);
 
-            // 3c. Mint 1 token vào ATA
-            await mintTo(connection, payer, mint, ata.address, payer, 1);
+            // --- BƯỚC 3: Mint NFT trên Solana sử dụng Metaplex ---
+            console.log("🎨 Tạo NFT với Metaplex...");
+            
+            // Tạo Metaplex instance
+            const metaplex = Metaplex.make(connection)
+                .use(walletAdapterIdentity(anchorWallet));
 
-            // 3d. Tạo địa chỉ Metadata PDA
-            const [metadataPDA] = PublicKey.findProgramAddressSync(
-                [
-                    Buffer.from("metadata"),
-                    TOKEN_METADATA_PROGRAM_ID.toBuffer(),
-                    mint.toBuffer(),
+            // Mint NFT
+            const { nft } = await metaplex.nfts().create({
+                uri: metadataUri,
+                name: projectDetails.projectName,
+                symbol: "CO2C",
+                sellerFeeBasisPoints: 500, // 5% royalty
+                creators: [
+                    {
+                        address: anchorWallet.publicKey,
+                        share: 100,
+                    }
                 ],
-                TOKEN_METADATA_PROGRAM_ID
-            );
+            });
 
-            // 3e. Tạo instruction để tạo metadata account
-            const metadataIx = createCreateMetadataAccountV3Instruction(
-                {
-                    metadata: metadataPDA,
-                    mint,
-                    mintAuthority: payer.publicKey,
-                    payer: payer.publicKey,
-                    updateAuthority: payer.publicKey,
-                },
-                {
-                    createMetadataAccountArgsV3: {
-                        data: {
-                            name: projectDetails.projectName,
-                            symbol: "CO2C", // Ký hiệu (Symbol)
-                            uri: metadataUri, // URI của file JSON
-                            sellerFeeBasisPoints: 500, // 5% royalty
-                            creators: [
-                                { address: payer.publicKey, verified: true, share: 100 },
-                            ],
-                            collection: null,
-                            uses: null,
-                        },
-                        isMutable: true,
-                        collectionDetails: null,
-                    },
-                }
-            );
-
-            const tx = new Transaction().add(metadataIx);
-            const sig = await sendAndConfirmTransaction(connection, tx, [payer]);
-            console.log("✅ Metadata created:", sig);
-
-            const newMintAddress = mint.toBase58();
+            console.log("✅ NFT Mint address:", nft.address.toBase58());
+            const newMintAddress = nft.address.toBase58();
 
             // --- BƯỚC 4: Lưu bản sao vào MongoDB (qua backend) ---
-            await api.post('/api/metadata/create', {
+            console.log("💾 Lưu vào MongoDB...");
+            await api.post('/metadata/create', {
                 mint: newMintAddress,
-                owner: payer.publicKey.toBase58(),
+                owner: anchorWallet.publicKey.toBase58(),
                 projectName: projectDetails.projectName,
-                location: { country: projectDetails.projectLocation }, // (Backend model cần { country: ... })
+                location: { country: projectDetails.projectLocation },
                 vintageYear: new Date(projectDetails.verificationDate).getFullYear(),
-                carbonAmount: parseInt(projectDetails.creditAmount),
+                carbonAmount: Number(projectDetails.creditAmount),
                 verificationStandard: projectDetails.creditStandard,
                 projectType: projectDetails.projectType,
                 projectDescription: projectDetails.description,

@@ -42,7 +42,7 @@ const NFTDetails: React.FC = () => {
             metadata: {
               name: metadata.projectName,
               description: metadata.projectDescription,
-              image: metadata.metadata.image || 'https://via.placeholder.com/400',
+              image: metadata.metadata.image || 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=400&q=80',
               attributes: metadata.metadata.attributes || [],
             },
           });

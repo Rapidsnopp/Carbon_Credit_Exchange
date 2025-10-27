@@ -18,8 +18,8 @@ const VerifyCredits: React.FC = () => {
     setVerificationResult(null); // Xóa kết quả cũ
 
     try {
-      // Gọi API backend thật
-      const response = await api.post('/api/carbon-credits/verify', { mint: creditId });
+      // Gọi API backend thật (baseURL đã có /api)
+      const response = await api.post('/carbon-credits/verify', { mint: creditId });
 
       if (response.data.success) {
         const data = response.data.data;

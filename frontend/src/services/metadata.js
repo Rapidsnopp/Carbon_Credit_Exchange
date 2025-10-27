@@ -1,10 +1,9 @@
 /**
  * Metadata Service
- * Handles metadata generation and upload
- * 
- * TODO: Integrate with IPFS/Arweave for decentralized storage
- * Current implementation uses data URLs as temporary solution
+ * Handles metadata generation and upload to IPFS via backend
  */
+
+import api from '../lib/axios';
 
 /**
  * Generate metadata JSON for Carbon Credit NFT
@@ -74,27 +73,61 @@ export const generateMetadata = (projectDetails, imageUrl) => {
 };
 
 /**
- * Upload metadata to temporary storage (data URL)
- * 
- * TODO: Replace with actual IPFS/Arweave upload
- * This is a temporary solution for testing
+ * Upload image to IPFS via backend
+ */
+export const uploadImage = async (file) => {
+  try {
+    console.log('📤 Uploading image to IPFS...');
+    
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    const response = await api.post('/upload/image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Upload failed');
+    }
+    
+    console.log('✅ Image uploaded:', response.data.imageUrl);
+    
+    return {
+      ipfsHash: response.data.ipfsHash,
+      imageUrl: response.data.imageUrl,
+      httpUrl: response.data.httpUrl,
+    };
+  } catch (error) {
+    console.error('❌ Error uploading image:', error);
+    throw new Error('Failed to upload image to IPFS: ' + error.message);
+  }
+};
+
+/**
+ * Upload metadata JSON to IPFS via backend
  */
 export const uploadMetadata = async (metadata) => {
-  // For now, convert to data URL (NOT for production!)
-  // In production, this should upload to IPFS/Arweave
-  
-  console.warn('⚠️ Using temporary metadata storage. Implement IPFS for production!');
-  
-  const metadataJson = JSON.stringify(metadata, null, 2);
-  const dataUrl = `data:application/json;base64,${btoa(metadataJson)}`;
-  
-  // Simulate upload delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  return {
-    uri: dataUrl,
-    metadata: metadata,
-  };
+  try {
+    console.log('📤 Uploading metadata to IPFS...');
+    
+    const response = await api.post('/upload/json', metadata);
+    
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Upload failed');
+    }
+    
+    console.log('✅ Metadata uploaded:', response.data.metadataUri);
+    
+    return {
+      uri: response.data.metadataUri,
+      ipfsHash: response.data.ipfsHash,
+      httpUrl: response.data.httpUrl,
+      metadata: metadata,
+    };
+  } catch (error) {
+    console.error('❌ Error uploading metadata:', error);
+    throw new Error('Failed to upload metadata to IPFS: ' + error.message);
+  }
 };
 
 /**
@@ -105,41 +138,58 @@ export const uploadMetadataViaBackend = async (projectDetails, imageFile) => {
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
   
   try {
-    // Create FormData for file upload
-    const formData = new FormData();
+    let imageUrl = null;
     
-    // Add project details
-    Object.keys(projectDetails).forEach(key => {
-      formData.append(key, projectDetails[key]);
-    });
-    
-    // Add image file if exists
+    // 1. Upload image to IPFS (if provided)
     if (imageFile) {
-      formData.append('image', imageFile);
+      const imageFormData = new FormData();
+      imageFormData.append('image', imageFile);
+      
+      const imageResponse = await fetch(`${API_URL}/api/upload/image`, {
+        method: 'POST',
+        body: imageFormData,
+      });
+      
+      if (!imageResponse.ok) {
+        throw new Error('Failed to upload image to IPFS');
+      }
+      
+      const imageData = await imageResponse.json();
+      imageUrl = imageData.imageUrl; // ipfs://QmXXX
+      console.log('✅ Image uploaded to IPFS:', imageUrl);
     }
     
-    // Upload to backend
-    const response = await fetch(`${API_URL}/api/metadata/create`, {
+    // 2. Create metadata JSON
+    const metadata = generateMetadata(projectDetails, imageUrl);
+    
+    // 3. Upload metadata JSON to IPFS
+    const metadataResponse = await fetch(`${API_URL}/api/upload/json`, {
       method: 'POST',
-      body: formData,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(metadata),
     });
     
-    if (!response.ok) {
-      throw new Error('Failed to upload metadata via backend');
+    if (!metadataResponse.ok) {
+      throw new Error('Failed to upload metadata to IPFS');
     }
     
-    const data = await response.json();
+    const metadataData = await metadataResponse.json();
+    console.log('✅ Metadata uploaded to IPFS:', metadataData.metadataUri);
     
     return {
-      uri: data.uri,
-      metadata: data.metadata,
+      uri: metadataData.metadataUri, // ipfs://QmYYY
+      httpUrl: metadataData.httpUrl, // https://gateway.pinata.cloud/ipfs/QmYYY
+      metadata: metadata,
+      imageUrl: imageUrl,
     };
     
   } catch (error) {
     console.error('Backend metadata upload failed:', error);
     
     // Fallback to temporary solution
-    console.warn('Falling back to temporary metadata storage');
+    console.warn('⚠️ Falling back to temporary metadata storage');
     const metadata = generateMetadata(projectDetails, imageFile ? URL.createObjectURL(imageFile) : null);
     return uploadMetadata(metadata);
   }

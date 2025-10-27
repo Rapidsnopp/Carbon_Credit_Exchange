@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Wallet } from 'lucide-react';
 
 // 1. Import Context và API thật
-import { useWalletContext } from '../contexts'; // Giả sử đây là context của bạn
+import { useWallet } from '@solana/wallet-adapter-react';
 import api from '../lib/axios';
 
 // 2. Import components và types của SOLANA
@@ -15,9 +15,8 @@ const MyNFTs: React.FC = () => {
   const [ownedNFTs, setOwnedNFTs] = useState<CollectionItem[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // 3. Lấy ví của người dùng từ Context
-  const { wallet } = useWalletContext(); // Hoặc wallet.publicKey
-  const publicKey = wallet?.adapter.publicKey;
+  // 3. Lấy ví của người dùng từ Solana Wallet Adapter
+  const { publicKey } = useWallet();
   // const anchorWallet = useAnchorWallet(); // Sẽ cần cho bước "List"
   
   const navigate = useNavigate();

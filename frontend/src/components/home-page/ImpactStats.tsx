@@ -39,8 +39,8 @@ export default function ImpactStats() {
     useEffect(() => {
         const fetchStats = async () => {
           try {
-            // Gọi API backend
-            const response = await api.get('/api/carbon-credits/stats');
+            // Gọi API backend (baseURL đã có /api rồi, nên chỉ cần /carbon-credits/stats)
+            const response = await api.get('/carbon-credits/stats');
 
             if (response.data.success) {
               const data = response.data.data;

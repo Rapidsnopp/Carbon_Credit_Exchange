@@ -173,14 +173,69 @@ export const getNFTMetadata = async (mintAddress: string) => {
   try {
     const accountInfo = await solanaConfig.connection.getAccountInfo(metadataPDA);
     if (!accountInfo) {
+      console.log(`No metadata account found for ${mintAddress}`);
       return null;
     }
     
-    // Parse metadata (simplified - you may want to use Metaplex SDK)
+    // Parse on-chain metadata using Metaplex standard
+    const data = accountInfo.data;
+    
+    // Skip discriminator (1 byte) and parse metadata
+    let offset = 1;
+    
+    // Read update authority (32 bytes)
+    const updateAuthority = new PublicKey(data.slice(offset, offset + 32));
+    offset += 32;
+    
+    // Read mint (32 bytes)
+    const mintPubkey = new PublicKey(data.slice(offset, offset + 32));
+    offset += 32;
+    
+    // Read name (string with 4-byte length prefix)
+    const nameLength = data.readUInt32LE(offset);
+    offset += 4;
+    const name = data.slice(offset, offset + nameLength).toString('utf8').replace(/\0/g, '');
+    offset += nameLength;
+    
+    // Read symbol (string with 4-byte length prefix)
+    const symbolLength = data.readUInt32LE(offset);
+    offset += 4;
+    const symbol = data.slice(offset, offset + symbolLength).toString('utf8').replace(/\0/g, '');
+    offset += symbolLength;
+    
+    // Read uri (string with 4-byte length prefix)
+    const uriLength = data.readUInt32LE(offset);
+    offset += 4;
+    const uri = data.slice(offset, offset + uriLength).toString('utf8').replace(/\0/g, '');
+    
+    // Fetch off-chain metadata from URI
+    let offChainMetadata = null;
+    if (uri && uri.startsWith('http')) {
+      try {
+        const response = await fetch(uri);
+        offChainMetadata = await response.json();
+      } catch (error) {
+        console.log(`Failed to fetch off-chain metadata from ${uri}`);
+      }
+    }
+    
     return {
       mint: mintAddress,
       metadataAddress: metadataPDA.toBase58(),
-      // Add full parsing logic here
+      name,
+      symbol,
+      uri,
+      updateAuthority: updateAuthority.toBase58(),
+      // Off-chain metadata
+      image: offChainMetadata?.image || '',
+      description: offChainMetadata?.description || '',
+      attributes: offChainMetadata?.attributes || [],
+      // Extract specific attributes for Carbon Credits
+      location: offChainMetadata?.attributes?.find((attr: any) => attr.trait_type === 'Location')?.value || 'Unknown',
+      credits: parseInt(offChainMetadata?.attributes?.find((attr: any) => attr.trait_type === 'Credits')?.value || '0'),
+      category: offChainMetadata?.attributes?.find((attr: any) => attr.trait_type === 'Category')?.value || 'Carbon Credit',
+      projectType: offChainMetadata?.attributes?.find((attr: any) => attr.trait_type === 'Project Type')?.value || '',
+      vintage: offChainMetadata?.attributes?.find((attr: any) => attr.trait_type === 'Vintage Year')?.value || '',
     };
   } catch (error) {
     console.error('Error fetching metadata:', error);
