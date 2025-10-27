@@ -11,6 +11,8 @@ import { buyCarbonCredit, listForSale, checkNFTOwnership } from '../services/sol
 import apiService from '../services/api';
 
 const Trading: React.FC = () => {
+  // Default placeholder used when listing image is missing or fails to load
+  const DEFAULT_PLACEHOLDER = 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=400&q=80';
   const [activeTab, setActiveTab] = useState<'buy' | 'sell' | 'list'>('buy');
   const [selectedAsset, setSelectedAsset] = useState<TradingAsset | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -410,6 +412,10 @@ const Trading: React.FC = () => {
                             src={asset.image}
                             alt={asset.name}
                             className="w-16 h-16 rounded-lg object-cover mr-4"
+                            onError={(e) => {
+                              const target = e.currentTarget as HTMLImageElement;
+                              if (target.src !== DEFAULT_PLACEHOLDER) target.src = DEFAULT_PLACEHOLDER;
+                            }}
                           />
                           <div className="flex-grow">
                             <div className="flex justify-between items-start">
@@ -591,6 +597,10 @@ const Trading: React.FC = () => {
                         src={selectedAsset.image}
                         alt={selectedAsset.name}
                         className="w-full h-40 rounded-lg object-cover mb-4"
+                        onError={(e) => {
+                          const target = e.currentTarget as HTMLImageElement;
+                          if (target.src !== DEFAULT_PLACEHOLDER) target.src = DEFAULT_PLACEHOLDER;
+                        }}
                       />
                       <div className="flex justify-between items-center mb-2">
                         <h3 className="font-bold text-white text-lg">{selectedAsset.name}</h3>
@@ -671,35 +681,7 @@ const Trading: React.FC = () => {
                 )}
               </div>
 
-              {/* Market Stats */}
-              <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700/50 p-6 mt-6">
-                <h3 className="font-bold text-white text-lg mb-4">
-                  Market Overview
-                  {useRealData && realListings.length > 0 && (
-                    <span className="ml-2 text-xs text-green-400">● Live</span>
-                  )}
-                </h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Total Volume</span>
-                    <span className="text-white">{currentMarketStats.totalVolume} {useRealData && realListings.length > 0 ? 'SOL' : 'ETH'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">24h Change</span>
-                    <span className={currentMarketStats.change24h >= 0 ? 'text-green-400' : 'text-red-400'}>
-                      {currentMarketStats.change24h >= 0 ? '+' : ''}{currentMarketStats.change24h}%
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Active Trades</span>
-                    <span className="text-white">{currentMarketStats.activeTrades}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Avg. Price</span>
-                    <span className="text-white">{currentMarketStats.avgPrice} {useRealData && realListings.length > 0 ? 'SOL' : 'ETH'}</span>
-                  </div>
-                </div>
-              </div>
+              {/* Market Overview removed as requested */}
             </div>
           </div>
 

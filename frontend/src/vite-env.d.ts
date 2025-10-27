@@ -10,3 +10,9 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+// Support importing image assets (Vite ?url and direct imports)
+declare module '*.svg?url' {
+  const svgUrl: string;
+  export default svgUrl;
+}
