@@ -1,8 +1,3 @@
-/**
- * Solana Service for Frontend
- * Handles all Solana blockchain interactions
- */
-
 import * as anchor from '@coral-xyz/anchor';
 import { 
   PublicKey, 

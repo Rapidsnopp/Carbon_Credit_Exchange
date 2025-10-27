@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import Header from '../components/Header';
+import Header from '../components/layout/Header';
 import ApiService from '../services/api';
 
 const APITest = () => {

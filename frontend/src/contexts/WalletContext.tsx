@@ -24,7 +24,7 @@ export const useWalletContext = (): WalletContextValue => {
   return ctx;
 };
 
-export const WalletProvider: React.FC<WalletContextProps> = ({ children }) => {
+export const WalletProvider = ({ children }: { children: any }) => {
   // The network can be set to 'devnet', 'testnet', or 'mainnet-beta'
   const network = WalletAdapterNetwork.Devnet;
 
@@ -43,7 +43,7 @@ export const WalletProvider: React.FC<WalletContextProps> = ({ children }) => {
 
   return (
     <ConnectionProvider endpoint={endpoint}>
-      <SolanaWalletProvider wallets={wallets} autoConnect>
+      <SolanaWalletProvider wallets={wallets} autoConnect={false}>
         <WalletModalProvider>
           <WalletContext.Provider value={{}}>
             {children}

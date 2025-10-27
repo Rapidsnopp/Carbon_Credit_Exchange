@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import SolanaService from '../services/solanaService';
+import CarbonCredit from '../models/carbonCredit';
 
 /**
  * GET /api/carbon-credits
@@ -158,33 +159,125 @@ export const getCarbonCreditStats = async (req: Request, res: Response) => {
  */
 export const verifyCarbonCredit = async (req: Request, res: Response) => {
   try {
-    const { mint } = req.body;
+    // Support both "mint" and "mintAddress" for backward compatibility
+    const { mint, mintAddress } = req.body;
+    const mintAddr = mint || mintAddress;
     
-    if (!mint) {
+    if (!mintAddr) {
       return res.status(400).json({
         success: false,
         error: 'Mint address is required',
       });
     }
     
-    // Check metadata
-    const metadata = await SolanaService.getNFTMetadata(mint);
+    console.log('🔍 Verifying carbon credit:', mintAddr);
+    console.log('📍 Querying MongoDB for mint:', mintAddr);
+    console.log('📏 Mint length:', mintAddr.length);
+    console.log('🔤 Mint trimmed:', mintAddr.trim());
+    
+    // Get on-chain metadata
+    const metadata = await SolanaService.getNFTMetadata(mintAddr);
+    
+    // Get MongoDB data - try exact match first
+    let dbData = await CarbonCredit.findOne({ mint: mintAddr });
+    
+    // If not found, try trimmed version
+    if (!dbData && mintAddr.trim() !== mintAddr) {
+      console.log('⚠️ Trying trimmed version...');
+      dbData = await CarbonCredit.findOne({ mint: mintAddr.trim() });
+    }
+    
+    console.log('🔍 Raw MongoDB query result:', dbData ? 'Found ✅' : 'Not found ❌');
+    if (!dbData) {
+      // Try to find all mints to debug
+      const allMints = await CarbonCredit.find({}, { mint: 1, projectName: 1 }).limit(5);
+      console.log('📋 Sample mints in database:');
+      allMints.forEach((doc: any) => {
+        console.log(`  - "${doc.mint}" (${doc.projectName})`);
+        console.log(`    Length: ${doc.mint.length}, Match: ${doc.mint === mintAddr}`);
+      });
+    }
+    
+    if (dbData) {
+      console.log('📄 MongoDB document:', {
+        mint: dbData.mint,
+        projectName: dbData.projectName,
+        location: dbData.location,
+        carbonAmount: dbData.carbonAmount,
+        projectType: dbData.projectType,
+        verificationDetails: dbData.verificationDetails,
+        verifier: dbData.verificationDetails?.verifier,
+      });
+    }
     
     // Check if it's from our program
-    const listing = await SolanaService.getListingInfo(mint);
-    const retirement = await SolanaService.getRetirementRecord(mint);
+    const listing = await SolanaService.getListingInfo(mintAddr);
+    const retirement = await SolanaService.getRetirementRecord(mintAddr);
     
-    const isValid = !!(metadata && (listing || retirement));
+    const isValid = !!(metadata || dbData);
+    
+    console.log('✅ Verification result:');
+    console.log(`  - Valid: ${isValid}`);
+    console.log(`  - Has on-chain metadata: ${!!metadata}`);
+    console.log(`  - Has MongoDB data: ${!!dbData}`);
+    console.log(`  - Is listed: ${!!listing}`);
+    console.log(`  - Is retired: ${!!retirement}`);
+    
+    if (dbData) {
+      console.log('💾 MongoDB data:');
+      console.log(`  - projectName: ${dbData.projectName}`);
+      console.log(`  - location: ${JSON.stringify(dbData.location)}`);
+      console.log(`  - carbonAmount: ${dbData.carbonAmount}`);
+      console.log(`  - projectType: ${dbData.projectType}`);
+    }
+    
+    if (metadata) {
+      console.log('⛓️  On-chain metadata:');
+      console.log(`  - name: ${metadata.name}`);
+      console.log(`  - location: ${metadata.location}`);
+    }
+    
+    // Merge data from on-chain and MongoDB
+    const mergedMetadata = {
+      ...metadata,
+      // Add MongoDB data with proper formatting
+      projectName: dbData?.projectName || metadata?.name,
+      projectType: dbData?.projectType || metadata?.projectType,
+      projectDescription: dbData?.projectDescription,
+      location: dbData?.location?.country || dbData?.location || metadata?.location,
+      vintageYear: dbData?.vintageYear || (metadata as any)?.vintage,
+      carbonAmount: dbData?.carbonAmount || metadata?.credits,
+      verificationStandard: dbData?.verificationStandard,
+      verifier: dbData?.verificationDetails?.verifier, // Add verifier from MongoDB
+      // Add database metadata if available
+      ...(dbData?.metadata || {}),
+    };
+    
+    console.log('📦 Merged metadata:');
+    console.log(`  - projectName: ${mergedMetadata.projectName}`);
+    console.log(`  - location: ${mergedMetadata.location}`);
+    console.log(`  - verifier (from dbData): ${dbData?.verificationDetails?.verifier}`);
+    console.log(`  - verifier (merged): ${mergedMetadata.verifier}`);
     
     res.json({
       success: true,
       data: {
-        mint,
+        mint: mintAddr,
         isValid,
-        metadata,
+        metadata: mergedMetadata,
         listing,
         retirement,
         verifiedAt: new Date().toISOString(),
+        // Include raw DB data
+        dbData: dbData ? {
+          projectName: dbData.projectName,
+          projectType: dbData.projectType,
+          projectDescription: dbData.projectDescription,
+          location: dbData.location,
+          vintageYear: dbData.vintageYear,
+          carbonAmount: dbData.carbonAmount,
+          verificationStandard: dbData.verificationStandard,
+        } : null,
       },
     });
   } catch (error: any) {
