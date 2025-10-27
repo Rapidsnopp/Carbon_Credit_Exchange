@@ -25,10 +25,10 @@ const NFTDetails: React.FC = () => {
       setLoading(true);
       try {
         // 1. Lấy metadata (từ MongoDB)
-        const metaRes = await api.get(`/api/metadata/${mintAddress}`);
+        const metaRes = await api.get(`/metadata/${mintAddress}`);
         
         // 2. Lấy thông tin on-chain (listing, retirement)
-        const chainRes = await api.get(`/api/carbon-credits/${mintAddress}`);
+        const chainRes = await api.get(`/carbon-credits/${mintAddress}`);
 
         if (metaRes.data.success) {
           // Gộp data từ 2 APIs
@@ -62,7 +62,7 @@ const NFTDetails: React.FC = () => {
   const handleBuyNow = async () => {
     if (!listing) return;
     
-    // TODO: Đây là logic Mua (phức tạp)
+    // TODO: Đây là logic Mua 
     // 1. Lấy `program` từ Anchor
     // const program = getProgram(anchorWallet);
 

@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import CarbonCreditController from '../controllers/carbonCreditController';
+import { mintCarbonCredit } from '../controllers/carbonCreditController'; 
+import { uploadMiddleware } from '../controllers/uploadController';
 
 const router = Router();
 
@@ -37,5 +39,6 @@ router.post('/verify', CarbonCreditController.verifyCarbonCredit);
  * @access  Public
  */
 router.get('/:mint', CarbonCreditController.getCarbonCreditByMint);
+router.post('/', uploadMiddleware, mintCarbonCredit);
 
 export default router;

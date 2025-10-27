@@ -1,33 +1,33 @@
 import React, { useState } from 'react';
 import { Upload, FileText, CheckCircle, Sparkles, Shield, Award, Leaf } from 'lucide-react';
-import { ProjectDetails, MintedNFT } from "../../types"; // Giữ nguyên types của bạn
+import { ProjectDetails, MintedNFT } from "../../types";
 
-// --- IMPORTS CHO LOGIC THẬT ---
-import api from '../../lib/axios'; // Import axios instance
+// --- IMPORTS CHO LOGIC ---
+import api from '../../lib/axios';
 import { useConnection } from '@solana/wallet-adapter-react';
-import { useAnchorWallet } from '@solana/wallet-adapter-react'; // Hook quan trọng
+import { useAnchorWallet } from '@solana/wallet-adapter-react';
 import {
     Keypair,
     Transaction,
     SystemProgram,
     PublicKey,
-    sendAndConfirmTransaction,
 } from "@solana/web3.js";
 import {
-    createMint,
-    getOrCreateAssociatedTokenAccount,
-    mintTo,
     TOKEN_PROGRAM_ID,
+    MINT_SIZE,
+    createInitializeMintInstruction,
+    createAssociatedTokenAccountInstruction,
+    createMintToInstruction,
+    getAssociatedTokenAddress
 } from "@solana/spl-token";
 import {
     createCreateMetadataAccountV3Instruction,
     PROGRAM_ID as TOKEN_METADATA_PROGRAM_ID,
 } from "@metaplex-foundation/mpl-token-metadata";
-// ------------------------------
-
+import { Buffer } from 'buffer';
 
 export default function MintCredit() {
-    // --- State cho Form (Giữ nguyên) ---
+    // --- State cho Form ---
     const [projectDetails, setProjectDetails] = useState<ProjectDetails>({
         projectName: '',
         projectLocation: '',
@@ -42,14 +42,11 @@ export default function MintCredit() {
     const [isMinting, setIsMinting] = useState<boolean>(false);
     const [mintedNFT, setMintedNFT] = useState<MintedNFT | null>(null);
     const [uploadedImage, setUploadedImage] = useState<string | null>(null);
-
-    // --- State cho Logic Thật ---
-    const [imageFile, setImageFile] = useState<File | null>(null); // State để giữ file thật
+    const [imageFile, setImageFile] = useState<File | null>(null);
     const { connection } = useConnection();
-    const anchorWallet = useAnchorWallet(); // Ví để ký giao dịch
+    const anchorWallet = useAnchorWallet();
 
-    // --- Các hàm xử lý (Cập nhật) ---
-
+    // --- Các hàm xử lý Input ---
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target as HTMLInputElement;
         setProjectDetails(prev => ({
@@ -61,10 +58,7 @@ export default function MintCredit() {
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files && e.target.files[0];
         if (file) {
-            // 1. Lưu file thật để upload
             setImageFile(file);
-            
-            // 2. Tạo preview (giữ nguyên logic)
             const reader = new FileReader();
             reader.onloadend = () => {
                 setUploadedImage(reader.result as string);
@@ -73,139 +67,54 @@ export default function MintCredit() {
         }
     };
 
-    // --- HÀM MINT THẬT (Thay thế hoàn toàn logic mock) ---
+    // --- HÀM MINT (GỌI BACKEND) ---
     const handleMint = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        if (!imageFile || !anchorWallet || !connection) {
-            alert("Vui lòng kết nối ví và upload ảnh dự án!");
+        // 1. Kiểm tra cơ bản
+        if (!imageFile || !anchorWallet || !projectDetails.projectName) {
+            alert("Vui lòng kết nối ví, upload ảnh và điền Tên dự án!");
             return;
         }
 
         setIsMinting(true);
         try {
-            const payer = anchorWallet; // Ví của bạn
-
-            // --- BƯỚC 1: Upload ảnh lên IPFS (qua backend) ---
+            // --- BƯỚC 1: Tạo FormData ---
+            // Chúng ta cần gửi cả file VÀ dữ liệu JSON trong một request
             const formData = new FormData();
+            
+            // Thêm file ảnh
             formData.append('image', imageFile);
-            const uploadRes = await api.post('/api/upload/image', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
+
+            // Thêm tất cả chi tiết dự án
+            // (Backend sẽ đọc chúng từ req.body)
+            Object.keys(projectDetails).forEach(key => {
+                formData.append(key, (projectDetails as any)[key]);
             });
-            const imageUrl = uploadRes.data.imageUrl; // (vd: "ipfs://Qm...")
-            console.log("Image uploaded:", imageUrl);
 
-            // --- BƯỚC 2: (TODO) Tạo và Upload file JSON metadata ---
-            // Bạn cần 1 endpoint backend mới (`POST /api/upload/json`) để upload file JSON này
-            // Tạm thời, chúng ta sẽ dùng 1 metadataUri giả
-            const metadataJson = {
-                name: projectDetails.projectName,
-                description: projectDetails.description,
-                image: imageUrl,
-                attributes: [
-                    { trait_type: 'Location', value: projectDetails.projectLocation },
-                    { trait_type: 'Type', value: projectDetails.projectType },
-                    { trait_type: 'Credits', value: projectDetails.creditAmount },
-                    { trait_type: 'Standard', value: projectDetails.creditStandard },
-                ]
-            };
-            // const metaUploadRes = await api.post('/api/upload/json', metadataJson);
-            // const metadataUri = metaUploadRes.data.metadataUri;
-            
-            // !!! DÙNG TẠM CHO HACKATHON !!!
-            const metadataUri = "https://arweave.net/12345.json"; // (Đây là URI của file JSON, không phải ảnh)
-            console.log("Metadata URI:", metadataUri);
+            // Thêm public key của người dùng
+            formData.append('userPublicKey', anchorWallet.publicKey.toBase58());
 
-
-            // --- BƯỚC 3: Mint NFT trên Solana (Metaplex) ---
-            // Đây là logic từ file `mintNft.ts` của bạn, đã được chuyển đổi
-            
-            // 3a. Tạo Mint
-            const mintKeypair = Keypair.generate();
-            const mint = await createMint(
-                connection,
-                payer, // Payer
-                payer.publicKey, // Mint Authority
-                payer.publicKey, // Freeze Authority
-                0 // Decimals (0 cho NFT)
-            );
-            console.log("Mint address:", mint.toBase58());
-
-            // 3b. Tạo Associated Token Account (ATA)
-            const ata = await getOrCreateAssociatedTokenAccount(connection, payer, mint, payer.publicKey);
-
-            // 3c. Mint 1 token vào ATA
-            await mintTo(connection, payer, mint, ata.address, payer, 1);
-
-            // 3d. Tạo địa chỉ Metadata PDA
-            const [metadataPDA] = PublicKey.findProgramAddressSync(
-                [
-                    Buffer.from("metadata"),
-                    TOKEN_METADATA_PROGRAM_ID.toBuffer(),
-                    mint.toBuffer(),
-                ],
-                TOKEN_METADATA_PROGRAM_ID
-            );
-
-            // 3e. Tạo instruction để tạo metadata account
-            const metadataIx = createCreateMetadataAccountV3Instruction(
-                {
-                    metadata: metadataPDA,
-                    mint,
-                    mintAuthority: payer.publicKey,
-                    payer: payer.publicKey,
-                    updateAuthority: payer.publicKey,
+            // --- BƯỚC 2: Gọi API Backend ---
+            const mintRes = await api.post('/carbon-credits', formData, {
+                headers: {
+                    // Quan trọng: Để trình duyệt tự đặt Content-Type
+                    'Content-Type': 'multipart/form-data',
                 },
-                {
-                    createMetadataAccountArgsV3: {
-                        data: {
-                            name: projectDetails.projectName,
-                            symbol: "CO2C", // Ký hiệu (Symbol)
-                            uri: metadataUri, // URI của file JSON
-                            sellerFeeBasisPoints: 500, // 5% royalty
-                            creators: [
-                                { address: payer.publicKey, verified: true, share: 100 },
-                            ],
-                            collection: null,
-                            uses: null,
-                        },
-                        isMutable: true,
-                        collectionDetails: null,
-                    },
-                }
-            );
-
-            const tx = new Transaction().add(metadataIx);
-            const sig = await sendAndConfirmTransaction(connection, tx, [payer]);
-            console.log("✅ Metadata created:", sig);
-
-            const newMintAddress = mint.toBase58();
-
-            // --- BƯỚC 4: Lưu bản sao vào MongoDB (qua backend) ---
-            await api.post('/api/metadata/create', {
-                mint: newMintAddress,
-                owner: payer.publicKey.toBase58(),
-                projectName: projectDetails.projectName,
-                location: { country: projectDetails.projectLocation }, // (Backend model cần { country: ... })
-                vintageYear: new Date(projectDetails.verificationDate).getFullYear(),
-                carbonAmount: parseInt(projectDetails.creditAmount),
-                verificationStandard: projectDetails.creditStandard,
-                projectType: projectDetails.projectType,
-                projectDescription: projectDetails.description,
             });
-            console.log("Saved to MongoDB");
 
-            // --- BƯỚC 5: Hiển thị kết quả (Giữ nguyên UI của bạn) ---
+            const data = mintRes.data;
+            console.log("✅ Mint thành công từ backend:", data);
+
+            // --- BƯỚC 3: Hiển thị kết quả  ---
             setMintedNFT({
-                id: newMintAddress, // Dùng Mint thật
+                id: data.mint,
                 name: projectDetails.projectName,
-                tokenId: newMintAddress, // Dùng Mint thật
-                image: uploadedImage || '...',
+                tokenId: data.mint,
+                image: uploadedImage || '...', // Dùng ảnh preview để hiển thị ngay
                 attributes: [
                     { trait_type: 'Project Name', value: projectDetails.projectName },
                     { trait_type: 'Location', value: projectDetails.projectLocation },
-                    { trait_type: 'Credits', value: projectDetails.creditAmount },
-                    { trait_type: 'Standard', value: projectDetails.creditStandard },
                 ]
             });
 
@@ -217,81 +126,204 @@ export default function MintCredit() {
         }
     };
 
-    // --- PHẦN UI (Giữ nguyên 100%) ---
+    // --- PHẦN UI ---
     return (
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
             {/* Minting Form - Takes 3 columns */}
             <div className="lg:col-span-3">
-                <div className="bg-gray-800/50 backdrop-blur-sm rounded-3xl border border-gray-700/50 p-8 shadow-2xl">
-                    <div className="flex items-center gap-3 mb-8">
-                        {/* ... (Toàn bộ UI của bạn) ... */}
-                        <h2 className="text-2xl font-bold text-white">Project Details</h2>
-                    </div>
-
-                    <form onSubmit={handleMint}>
-                        <div className="space-y-6">
-                            {/* Image Upload Section */}
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-300 mb-3">
-                                    Project Image
-                                </label>
-                                <div className="relative">
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={handleImageUpload} // Đã cập nhật
-                                        className="hidden"
-                                        id="image-upload"
-                                    />
-                                    {/* ... (Toàn bộ UI Image Upload) ... */}
-                                </div>
-                            </div>
-
-                            {/* ... (Toàn bộ UI các trường input: Project Name, Location, v.v...) ... */}
-                            {/* ... (Đảm bảo tất cả các input đều có value, onChange, name) ... */}
-
-                            <button
-                                type="submit"
-                                disabled={isMinting}
-                                className={`w-full py-4 px-6 rounded-xl font-bold text-lg transition-all duration-300 ${isMinting
-                                    ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                                    : 'bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white shadow-lg shadow-teal-500/50 hover:shadow-teal-500/70 hover:transform hover:scale-[1.02]'
-                                    }`}
-                            >
-                                {isMinting ? (
-                                    <span className="flex items-center justify-center">
-                                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" /* ... */ ></svg>
-                                        Minting Your NFT...
-                                    </span>
-                                ) : (
-                                    <span className="flex items-center justify-center gap-2">
-                                        <Sparkles className="w-5 h-5" />
-                                        Mint Carbon Credit NFT
-                                    </span>
-                                )}
-                            </button>
+                {/* --- Logic: Ẩn form khi đã mint xong --- */}
+                {!mintedNFT ? (
+                    <div className="bg-gray-800/50 backdrop-blur-sm rounded-3xl border border-gray-700/50 p-8 shadow-2xl">
+                        <div className="flex items-center gap-3 mb-8">
+                            <FileText className="w-6 h-6 text-teal-400" />
+                            <h2 className="text-2xl font-bold text-white">Project Details</h2>
                         </div>
-                    </form>
-                </div>
+
+                        <form onSubmit={handleMint}>
+                            <div className="space-y-6">
+                                {/* Image Upload Section */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-300 mb-3">
+                                        Project Image
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleImageUpload}
+                                            className="hidden"
+                                            id="image-upload"
+                                        />
+                                        <label
+                                            htmlFor="image-upload"
+                                            className="cursor-pointer bg-gray-700/50 border-2 border-dashed border-gray-600 rounded-xl h-48 flex flex-col items-center justify-center text-gray-400 hover:border-teal-500 hover:text-teal-400 transition-all duration-300"
+                                        >
+                                            {uploadedImage ? (
+                                                <img src={uploadedImage} alt="Preview" className="w-full h-full object-cover rounded-xl" />
+                                            ) : (
+                                                <div className="flex flex-col items-center">
+                                                    <Upload className="w-10 h-10 mb-2" />
+                                                    <span className="font-semibold">Click to upload</span>
+                                                    <span className="text-xs">PNG, JPG or GIF (max. 5MB)</span>
+                                                </div>
+                                            )}
+                                        </label>
+                                    </div>
+                                </div>
+
+                                {/* Text Input Fields */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <input
+                                        name="projectName"
+                                        value={projectDetails.projectName}
+                                        onChange={handleInputChange}
+                                        placeholder="Project Name"
+                                        className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white"
+                                    />
+                                    <input
+                                        name="projectLocation"
+                                        value={projectDetails.projectLocation}
+                                        onChange={handleInputChange}
+                                        placeholder="Project Location (e.g., Brazil)"
+                                        className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white"
+                                    />
+                                </div>
+                                <select
+                                    name="projectType"
+                                    value={projectDetails.projectType}
+                                    onChange={handleInputChange}
+                                    className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white"
+                                >
+                                    <option value="">Select Project Type</option>
+                                    <option value="Forestry">Forestry</option>
+                                    <option value="Renewable Energy">Renewable Energy</option>
+                                    <option value="Marine Conservation">Marine Conservation</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                                <input
+                                    name="creditAmount"
+                                    value={projectDetails.creditAmount}
+                                    onChange={handleInputChange}
+                                    type="number"
+                                    placeholder="Total Carbon Credits (e.g., 1000)"
+                                    className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white"
+                                />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <input
+                                        name="creditStandard"
+                                        value={projectDetails.creditStandard}
+                                        onChange={handleInputChange}
+                                        placeholder="Credit Standard (e.g., VCS)"
+                                        className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white"
+                                    />
+                                    <input
+                                        name="certificationBody"
+                                        value={projectDetails.certificationBody}
+                                        onChange={handleInputChange}
+                                        placeholder="Certification Body (e.g., Verra)"
+                                        className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white"
+                                    />
+                                </div>
+                                <input
+                                    name="verificationDate"
+                                    value={projectDetails.verificationDate}
+                                    onChange={handleInputChange}
+                                    type="date"
+                                    placeholder="Verification Date"
+                                    className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white"
+                                />
+                                <textarea
+                                    name="description"
+                                    value={projectDetails.description}
+                                    onChange={handleInputChange}
+                                    rows={4}
+                                    placeholder="Project Description..."
+                                    className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white"
+                                />
+
+                                <button
+                                    type="submit"
+                                    disabled={isMinting}
+                                    className={`w-full py-4 px-6 rounded-xl font-bold text-lg transition-all duration-300 ${isMinting
+                                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                                        : 'bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white shadow-lg shadow-teal-500/50 hover:shadow-teal-500/70 hover:transform hover:scale-[1.02]'
+                                        }`}
+                                >
+                                    {isMinting ? (
+                                        <span className="flex items-center justify-center">
+                                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Minting Your NFT...
+                                        </span>
+                                    ) : (
+                                        <span className="flex items-center justify-center gap-2">
+                                            <Sparkles className="w-5 h-5" />
+                                            Mint Carbon Credit NFT
+                                        </span>
+                                    )}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                ) : (
+                    // --- UI Hiển thị sau khi MINT THÀNH CÔNG ---
+                    <div className="bg-gray-800/50 backdrop-blur-sm rounded-3xl border border-green-500/50 p-8 shadow-2xl text-center">
+                        <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-6" />
+                        <h2 className="text-3xl font-bold text-white mb-2">Success!</h2>
+                        <p className="text-gray-300 mb-6">Your Carbon Credit NFT has been minted.</p>
+                        <div className="w-full rounded-2xl overflow-hidden mb-4">
+                            <img src={mintedNFT.image} alt={mintedNFT.name} className="w-full h-auto object-cover" />
+                        </div>
+                        <h3 className="text-2xl font-bold text-white mb-2">{mintedNFT.name}</h3>
+                        <p className="text-gray-400 text-sm font-mono break-all">Mint: {mintedNFT.tokenId}</p>
+                    </div>
+                )}
             </div>
 
             {/* Preview/Result Section - Takes 2 columns */}
             <div className="lg:col-span-2">
                 <div className="sticky top-24">
+                    {/* --- Logic: Hiển thị Preview hoặc Kết quả --- */}
                     {mintedNFT ? (
                         <div className="bg-gray-800/50 backdrop-blur-sm rounded-3xl border border-gray-700/50 p-8 shadow-2xl">
-                           {/* ... (Toàn bộ UI Success) ... */}
-                           <h2 className="text-3xl font-bold text-white mb-2">Success!</h2>
-                           <img src={mintedNFT.image} alt={mintedNFT.name} />
-                           <h3 className="text-2xl font-bold text-white mb-2">{mintedNFT.name}</h3>
-                           <p className="text-gray-400 text-sm">Token ID: {mintedNFT.tokenId}</p>
-                           {/* ... (Rest of success UI) ... */}
+                           <h2 className="text-2xl font-bold text-white mb-6">NFT Attributes</h2>
+                           <div className="space-y-3">
+                                {mintedNFT.attributes.map((attr, index) => (
+                                    <div key={index} className="flex justify-between items-center bg-gray-700/50 p-3 rounded-lg">
+                                        <span className="text-gray-400 text-sm font-medium">{attr.trait_type}</span>
+                                        <span className="text-white font-semibold">{attr.value}</span>
+                                    </div>
+                                ))}
+                           </div>
                         </div>
                     ) : (
                         <div className="bg-gray-800/50 backdrop-blur-sm rounded-3xl border border-gray-700/50 p-8 shadow-2xl">
-                            {/* ... (Toàn bộ UI Live Preview) ... */}
-                            <h2 className="text-2xl font-bold text-white">Live Preview</h2>
-                            {/* ... (Rest of preview UI) ... */}
+                            <h2 className="text-2xl font-bold text-white mb-6">Live Preview</h2>
+                            <div className="w-full bg-gray-700/50 rounded-2xl overflow-hidden">
+                                <div className="w-full h-56 flex items-center justify-center">
+                                    {uploadedImage ? (
+                                        <img src={uploadedImage} alt="Preview" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <span className="text-gray-500">Image Preview</span>
+                                    )}
+                                </div>
+                                <div className="p-4">
+                                    <h3 className="text-lg font-bold text-white truncate">
+                                        {projectDetails.projectName || "Project Name"}
+                                    </h3>
+                                    <p className="text-sm text-gray-400 truncate">
+                                        {projectDetails.projectLocation || "Location"}
+                                    </p>
+                                    <div className="flex justify-between items-center mt-4">
+                                        <span className="text-xs text-gray-500">Credits</span>
+                                        <span className="text-white font-semibold">
+                                            {projectDetails.creditAmount || "0"}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>

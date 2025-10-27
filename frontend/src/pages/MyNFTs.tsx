@@ -3,20 +3,20 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Wallet } from 'lucide-react';
 
 // 1. Import Context và API thật
-import { useWalletContext } from '../contexts'; // Giả sử đây là context của bạn
+import { useWallet } from '@solana/wallet-adapter-react'; 
 import api from '../lib/axios';
 
 // 2. Import components và types của SOLANA
 import { CollectionItem } from '../types/collection.types';
 import { CollectionCard } from '../components/trading-page/CollectionCard';
-// import { useAnchorWallet } from '@solana/wallet-adapter-react'; // Sẽ cần cho bước "List"
+// import { useAnchorWallet } from '@solana/wallet-adapter-react';
 
 const MyNFTs: React.FC = () => {
   const [ownedNFTs, setOwnedNFTs] = useState<CollectionItem[]>([]);
   const [loading, setLoading] = useState(true);
   
   // 3. Lấy ví của người dùng từ Context
-  const { wallet } = useWalletContext(); // Hoặc wallet.publicKey
+  const { wallet } = useWallet(); // Hoặc wallet.publicKey
   const publicKey = wallet?.adapter.publicKey;
   // const anchorWallet = useAnchorWallet(); // Sẽ cần cho bước "List"
   
@@ -34,7 +34,7 @@ const MyNFTs: React.FC = () => {
       setLoading(true);
       try {
         // Gọi API backend của bạn
-        const response = await api.get(`/api/carbon-credits/wallet/${publicKey.toBase58()}`);
+        const response = await api.get(`/carbon-credits/wallet/${publicKey.toBase58()}`);
         
         if (response.data.success) {
           // Lọc ra những NFT chưa bị "retired" (đốt)
@@ -53,7 +53,6 @@ const MyNFTs: React.FC = () => {
 
   // 5. Hàm xử lý "List for Sale" (Đăng bán)
   const handleListForSale = async (nft: CollectionItem) => {
-    // TODO: Đây là logic phức tạp nhất
     // 1. Hiển thị một Modal (popup) hỏi người dùng giá bán (price_in_sol)
     const priceInSol = prompt(`Nhập giá bán cho ${nft.metadata.name} (SOL):`);
     if (!priceInSol || isNaN(parseFloat(priceInSol))) {

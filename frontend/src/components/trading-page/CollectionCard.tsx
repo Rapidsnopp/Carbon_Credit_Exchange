@@ -1,9 +1,10 @@
 import React from 'react';
 import { CollectionItem } from '../../types/collection.types';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { useNavigate } from 'react-router-dom'; // <-- BƯỚC 1: Import hook
+import { useNavigate } from 'react-router-dom'; 
+import { ipfsToGatewayUrl } from '../../lib/utils';
 
-// --- Helper Functions (Giữ nguyên) ---
+// --- Helper Functions ---
 const formatPrice = (priceInLamports: string): number => {
   try {
     const price = parseFloat(priceInLamports);
@@ -18,21 +19,31 @@ const formatAddress = (address: string, chars = 4): string => {
   return `${address.substring(0, chars)}...${address.substring(address.length - chars)}`;
 };
 
-// --- Prop Types (Giữ nguyên) ---
+// --- Prop Types ---
 type CollectionCardProps = {
   item: CollectionItem;
 };
 
 // --- Component Chính ---
 export const CollectionCard: React.FC<CollectionCardProps> = ({ item }) => {
-  // --- BƯỚC 2: Khởi tạo hook ---
+  // Khởi tạo hook ---
   const navigate = useNavigate();
 
-  // Lấy ra các thuộc tính (Giữ nguyên)
+  if (!item || !item.metadata) {
+    return (
+      <div className="bg-gray-800/40 rounded-2xl border border-gray-700/50 p-4 shadow-lg animate-pulse">
+        <div className="w-full h-48 bg-gray-700 rounded-lg"></div>
+        <div className="h-4 bg-gray-700 rounded-md w-3/4 mt-4"></div>
+        <div className="h-3 bg-gray-700 rounded-md w-1/2 mt-2"></div>
+      </div>
+    );
+  }
+
+  // Lấy ra các thuộc tính
   const projectType = item.metadata.attributes.find(a => a.trait_type === 'Loại')?.value;
   const vintageYear = item.metadata.attributes.find(a => a.trait_type === 'Năm')?.value;
 
-  // --- BƯỚC 3: Tạo hàm xử lý click ---
+  // --- Tạo hàm xử lý click ---
   const handleViewDetails = () => {
     // Điều hướng đến trang NFTDetails với "mint address"
     navigate(`/nft/${item.mint}`); 
@@ -41,10 +52,10 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({ item }) => {
   return (
     <div className="bg-gray-800/40 backdrop-blur-sm rounded-2xl border border-gray-700/50 overflow-hidden shadow-lg ...">
       
-      {/* (Phần Hình ảnh, Tên, Tags... giữ nguyên) */}
+      {/* (Phần Hình ảnh, Tên, Tags...) */}
       <div className="w-full h-48 bg-gray-900">
         <img
-          src={item.metadata.image}
+          src={ipfsToGatewayUrl(item.metadata.image)}
           alt={item.metadata.name}
           className="w-full h-full object-cover"
         />
@@ -68,7 +79,7 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({ item }) => {
             </p>
           </div>
 
-          {/* --- BƯỚC 4: Thêm onClick vào nút --- */}
+          {/* --- Thêm onClick vào nút --- */}
           <button 
             onClick={handleViewDetails} 
             className="bg-teal-500 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ..."

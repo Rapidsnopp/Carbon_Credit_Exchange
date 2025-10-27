@@ -8,6 +8,7 @@ export interface SolanaConfig {
   programId: PublicKey;
   provider: AnchorProvider;
   program: Program | null;
+  adminKeypair: Keypair;
 }
 
 // Load IDL
@@ -26,33 +27,33 @@ const loadIDL = () => {
 };
 
 // Load admin keypair (optional, for backend-initiated transactions)
-const loadAdminKeypair = (): Keypair | null => {
+const loadAdminKeypair = (): Keypair => { 
   try {
     const keypairPath = process.env.ADMIN_KEYPAIR_PATH;
     if (keypairPath && fs.existsSync(keypairPath)) {
       const secretKey = JSON.parse(fs.readFileSync(keypairPath, 'utf-8'));
+      console.log("✅ Admin keypair loaded successfully."); // Thêm log
       return Keypair.fromSecretKey(Uint8Array.from(secretKey));
     }
-    console.warn('Admin keypair not found, using dummy wallet');
-    return null;
+    // Nếu không có key, đây là lỗi nghiêm trọng
+    throw new Error('ADMIN_KEYPAIR_PATH is not set or file not found.');
   } catch (error) {
-    console.error('Error loading admin keypair:', error);
-    return null;
+    console.error('❌ Error loading admin keypair:', error);
+    // Thoát tiến trình nếu không load được key
+    process.exit(1); 
   }
 };
 
 export const getSolanaConfig = (): SolanaConfig => {
   const rpcUrl = process.env.SOLANA_RPC_URL || clusterApiUrl('devnet');
-  const programIdStr = process.env.PROGRAM_ID || 'G1oyFNSMSHRBPG6LWWpAMhJJNf23HWjNpq8FALJSUqs3';
+  const programIdStr = process.env.PROGRAM_ID || '4fyXjVKLcRA13LdvudaHQnc14JcdJa8ZUMAqbfkgMe1s';
   
   const connection = new Connection(rpcUrl, 'confirmed');
   const programId = new PublicKey(programIdStr);
   
   // Create a wallet (can be dummy for read-only operations)
-  const adminKeypair = loadAdminKeypair();
-  const wallet = adminKeypair 
-    ? new Wallet(adminKeypair)
-    : new Wallet(Keypair.generate()); // Dummy wallet for read-only
+  const adminKeypair = loadAdminKeypair(); // Hàm này giờ sẽ luôn trả về Keypair
+  const wallet = new Wallet(adminKeypair);
   
   const provider = new AnchorProvider(connection, wallet, {
     commitment: 'confirmed',
@@ -68,6 +69,7 @@ export const getSolanaConfig = (): SolanaConfig => {
     programId,
     provider,
     program,
+    adminKeypair: adminKeypair, 
   };
 };
 

@@ -1,17 +1,10 @@
 import React from 'react';
 
-// 1. Import CÁC component của hệ thống SOLANA
+// Import CÁC component của hệ thống SOLANA
 import { Collection } from '../components/trading-page/Collection';
 import HowToTrade from '../components/trading-page/HowToTrade';
 
-// 2. XÓA BỎ tất cả import liên quan đến ETH và file mockData.ts cũ
-// (Không còn `getTradingAssets`, `getMarketStats`, `Search`, `ChevronLeft`...)
-
 const Trading: React.FC = () => {
-  // 3. XÓA BỎ tất cả logic cũ
-  // (Không còn `activeTab`, `selectedAsset`, `searchQuery`, `currentPage`...)
-  // (Không còn `filteredAssets`, `handleSearchChange`, `handleBuy`...)
-
   return (
     <div className="min-h-screen bg-gray-900">
       <div className="pt-24 pb-16">
@@ -26,14 +19,14 @@ const Trading: React.FC = () => {
             </p>
           </div>
 
-          {/* 4. Đây là component duy nhất hiển thị Collection (SOL) của bạn */}
+          {/* Đây là component hiển thị Collection (SOL)  */}
           {/* Nó sẽ tự động:
               - Hiển thị mock data SOL (từ src/data/mocks.ts)
               - Hoặc hiển thị data thật từ API (nếu có)
           */}
           <Collection />
 
-          {/* Component hướng dẫn (giữ lại) */}
+          {/* Component hướng dẫn */}
           <HowToTrade />
         </div>
       </div>
