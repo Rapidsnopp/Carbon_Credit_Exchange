@@ -441,6 +441,14 @@ export const listForSale = async (
     priceInSOL * anchor.web3.LAMPORTS_PER_SOL
   );
 
+  // Check if there's already a listing for this NFT
+  const existingListing = await connection.getAccountInfo(listingPda);
+  if (existingListing) {
+    throw new Error(
+      "This NFT is already listed for sale. Please delist it first if you want to update the price."
+    );
+  }
+
   try {
     const tx = await program.methods
       .listForSale(priceInLamports)

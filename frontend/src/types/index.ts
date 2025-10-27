@@ -32,7 +32,7 @@ export type VerificationResult = {
 };
 
 export type TradingAsset = {
-    id: number;
+    id: string | number;
     name: string;
     location: string;
     credits: number;
@@ -40,6 +40,7 @@ export type TradingAsset = {
     change: number;
     image: string;
     category: string;
+    mint?: string; // Optional mint address for blockchain operations
 };
 
 export type Stats = {
