@@ -3,16 +3,33 @@ import { useNavigate } from "react-router-dom"
 import { Globe } from "lucide-react"
 import { getProjectCategoriesForHome } from "../../constant/mockData"
 
-export default function categoriesTabs() {
-    const [activeTab, setActiveTab] = useState<'forest' | 'ocean' | 'renewable'>('forest');
+type TabKey = 'forest' | 'ocean' | 'renewable';
+type ProjectCard = {
+    id: number | string;
+    title: string;
+    location: string;
+    image: string;
+    credits: number;
+    price: string | number;
+    impact: string;
+}
+
+export default function CategoriesTabs() {
+    const [activeTab, setActiveTab] = useState<TabKey>('forest');
 
     const projectCategories = getProjectCategoriesForHome();
     const navigate = useNavigate();
 
     const handleViewDetails = (projectId: string | number) => {
-        // Navigate to the dynamic route 'nft/{id}'
         navigate(`/nft/${projectId}`);
     };
+
+    const tabs: { key: TabKey; label: string; emoji: string; activeClass: string }[] = [
+        { key: 'forest', label: 'Forest Conservation', emoji: '🌲', activeClass: 'from-teal-500 to-emerald-500 shadow-teal-500/50' },
+        { key: 'ocean', label: 'Ocean Protection', emoji: '🌊', activeClass: 'from-cyan-500 to-blue-500 shadow-cyan-500/50' },
+        { key: 'renewable', label: 'Renewable Energy', emoji: '⚡', activeClass: 'from-amber-500 to-orange-500 shadow-amber-500/50' },
+    ];
+
     return (
         <section className="py-20 bg-gray-800/30">
             <div className="container mx-auto px-6">
@@ -22,42 +39,30 @@ export default function categoriesTabs() {
                 </div>
 
                 {/* Category Tabs */}
-                <div className="flex flex-wrap justify-center gap-4 mb-12">
-                    <button
-                        onClick={() => setActiveTab('forest')}
-                        className={`px-8 py-3 rounded-full font-medium transition-all duration-300 ${activeTab === 'forest'
-                            ? 'bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-lg shadow-teal-500/50'
-                            : 'bg-gray-800/50 text-gray-400 hover:bg-gray-800 border border-gray-700'
-                            }`}
-                    >
-                        🌲 Forest Conservation
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('ocean')}
-                        className={`px-8 py-3 rounded-full font-medium transition-all duration-300 ${activeTab === 'ocean'
-                            ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/50'
-                            : 'bg-gray-800/50 text-gray-400 hover:bg-gray-800 border border-gray-700'
-                            }`}
-                    >
-                        🌊 Ocean Protection
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('renewable')}
-                        className={`px-8 py-3 rounded-full font-medium transition-all duration-300 ${activeTab === 'renewable'
-                            ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/50'
-                            : 'bg-gray-800/50 text-gray-400 hover:bg-gray-800 border border-gray-700'
-                            }`}
-                    >
-                        ⚡ Renewable Energy
-                    </button>
+                <div className="flex flex-wrap justify-center gap-4 mb-12" role="tablist" aria-label="Project categories">
+                    {tabs.map(t => (
+                        <button
+                            key={t.key}
+                            onClick={() => setActiveTab(t.key)}
+                            role="tab"
+                            aria-selected={activeTab === t.key}
+                            className={`px-8 py-3 rounded-full font-medium transition-all duration-300 ${activeTab === t.key
+                                ? `bg-gradient-to-r ${t.activeClass} text-white shadow-lg`
+                                : 'bg-gray-800/50 text-gray-400 hover:bg-gray-800 border border-gray-700'
+                                }`}
+                        >
+                            <span className="mr-2" aria-hidden>{t.emoji}</span>
+                            {t.label}
+                        </button>
+                    ))}
                 </div>
 
                 {/* Project Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-                    {projectCategories[activeTab].map((project, index) => (
+                    {(projectCategories[activeTab] || []).map((project: ProjectCard) => (
                         <div
-                            key={index}
-                            className="group bg-gray-800/50 backdrop-blur-sm rounded-3xl border border-gray-700/50 overflow-hidden hover:border-teal-500/50 transition-all duration-300 hover:transform hover:scale-[1.02]"
+                            key={project.id}
+                            className="group bg-gray-800/50 backdrop-blur-sm rounded-3xl border border-gray-700/50 overflow-hidden hover:border-teal-500/50 transition-all duration-300 transform hover:scale-[1.02]"
                         >
                             <div className="relative overflow-hidden h-56">
                                 <img
