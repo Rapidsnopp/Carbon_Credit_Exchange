@@ -3,11 +3,14 @@ import { ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
+import { PublicKey } from '@solana/web3.js';
+import * as anchor from "@coral-xyz/anchor";
 import { TradingAsset } from "../types"
 import HowToTrade from '../components/trading-page/HowToTrade';
 import { getTradingAssets, getMarketStats } from '../constant/mockData';
 import { useToast } from '../contexts/ToastContext';
-import { buyCarbonCredit, listForSale, checkNFTOwnership } from '../services/solana';
+import { buyCarbonCredit, listForSale, checkNFTOwnership, getProgram, getExchangePDA } from '../services/solana';
+import { fetchMetadata } from '../services/metaplex';
 import apiService from '../services/api';
 
 const Trading: React.FC = () => {
@@ -18,9 +21,16 @@ const Trading: React.FC = () => {
   const itemsPerPage = 4;
 
   // Real blockchain data states
-  const [realListings, setRealListings] = useState([]);
+  interface MarketStats {
+    totalVolume: string;
+    change24h: number;
+    activeTrades: number;
+    avgPrice: string;
+  }
+
+  const [realListings, setRealListings] = useState<TradingAsset[]>([]);
   const [loading, setLoading] = useState(true);
-  const [marketStats, setMarketStats] = useState(null);
+  const [marketStats, setMarketStats] = useState<MarketStats | null>(null);
   const [useRealData, setUseRealData] = useState(true); // Toggle between real/mock data
 
   // Wallet and connection hooks
@@ -51,37 +61,103 @@ const Trading: React.FC = () => {
     try {
       setLoading(true);
 
-      // Fetch listings from backend/blockchain
-      const response = await apiService.getAllListings();
+      if (!connection || !wallet) {
+        throw new Error('Connection and wallet are required');
+      }
 
-      if (response.success && response.data && response.data.length > 0) {
-        // Transform backend data to match TradingAsset format
-        const formattedListings: TradingAsset[] = response.data.map((listing: any) => {
-          // Convert price from lamports to SOL (1 SOL = 1,000,000,000 lamports)
-          const priceInSOL = listing.price ? parseFloat(listing.price) / 1_000_000_000 : 0;
+      console.log('Fetching listings...');
+      const program = getProgram(connection, wallet);
+
+      // Get exchange PDA
+      const exchangePda = await getExchangePDA();
+      console.log('Exchange PDA:', exchangePda.toBase58());
+
+      // Get all listings from program
+      const allListings = await program.account.listing.all();
+      console.log('Found listings:', allListings.length);
+
+      // Format listings and fetch metadata
+      const formattedListings = await Promise.all(allListings.map(async (item: any) => {
+        const listing = item.account;
+        const mint = new PublicKey(listing.mint);
+
+        try {
+          // Fetch and decode metadata
+          const metadata = await fetchMetadata(connection, mint);
+          console.log('Fetched metadata:', metadata);
+
+          let jsonMetadata = null;
+          if (metadata.data.uri) {
+            if (metadata.data.uri.startsWith('data:application/json;base64,')) {
+              // Handle base64 encoded JSON
+              try {
+                const base64Data = metadata.data.uri.replace('data:application/json;base64,', '');
+                const decodedData = atob(base64Data);
+                jsonMetadata = JSON.parse(decodedData);
+                console.log('Parsed base64 metadata:', jsonMetadata);
+              } catch (err) {
+                console.error('Error parsing base64 metadata:', err);
+              }
+            } else if (metadata.data.uri.startsWith('ipfs://')) {
+              // Handle IPFS URI
+              try {
+                const ipfsGatewayURL = metadata.data.uri.replace('ipfs://', 'https://ipfs.io/ipfs/');
+                const response = await fetch(ipfsGatewayURL);
+                if (response.ok) {
+                  jsonMetadata = await response.json();
+                  console.log('Fetched IPFS metadata:', jsonMetadata);
+                }
+              } catch (err) {
+                console.error('Error fetching IPFS metadata:', err);
+              }
+            }
+          }
 
           return {
-            id: listing.mint || listing._id,
-            name: listing.metadata?.name || `Carbon Credit #${listing.mint?.slice(0, 8)}`,
-            location: listing.metadata?.location || 'Unknown Location',
-            credits: listing.metadata?.credits || 0,
-            price: priceInSOL,
-            change: 0, // Calculate based on historical data if available
-            image: listing.metadata?.image || 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=400&q=80',
-            category: listing.metadata?.category || 'Carbon Credit',
-            mint: listing.mint // Add mint address for blockchain operations
+            id: mint.toBase58(),
+            name: metadata.data.name || `Carbon Credit #${mint.toBase58().slice(0, 8)}`,
+            location: jsonMetadata?.location || 'Unknown Location',
+            credits: jsonMetadata?.attributes?.find((a: any) => a.trait_type === 'Credits')?.value || 0,
+            price: listing.price.toNumber() / anchor.web3.LAMPORTS_PER_SOL,
+            change: 0,
+            image: jsonMetadata?.image || 'https://placehold.co/400x400',
+            category: jsonMetadata?.attributes?.find((a: any) => a.trait_type === 'Project Type')?.value || 'Carbon Credit',
+            mint: mint.toBase58()
           };
-        });
+        } catch (error) {
+          console.error('Error processing metadata for mint:', mint.toBase58(), error);
+          return {
+            id: mint.toBase58(),
+            name: `Carbon Credit #${mint.toBase58().slice(0, 8)}`,
+            location: 'Unknown Location',
+            credits: 0,
+            price: listing.price.toNumber() / anchor.web3.LAMPORTS_PER_SOL,
+            change: 0,
+            image: 'https://placehold.co/400x400',
+            category: 'Carbon Credit',
+            mint: mint.toBase58()
+          };
+        }
+      }));
 
-        setRealListings(formattedListings as any);
-        setUseRealData(true);
-        console.log('✅ Loaded real blockchain listings:', formattedListings.length);
-        console.log('📊 Sample listing:', formattedListings[0]); // Debug log
-      } else {
-        // No listings found, use mock data
-        setRealListings([]);
-        setUseRealData(false);
-        console.log('ℹ️ No blockchain listings found, using mock data');
+      setRealListings(formattedListings);
+      setUseRealData(true);
+      console.log('✅ Loaded real blockchain listings:', formattedListings.length);
+      console.log('📊 Sample listing:', formattedListings[0]); // Debug log
+
+      // Calculate market stats
+      if (formattedListings.length > 0) {
+        const totalVolume = formattedListings.reduce((sum, listing) =>
+          sum + (listing.price * listing.credits), 0);
+        const avgPrice = formattedListings.reduce((sum, listing) =>
+          sum + listing.price, 0) / formattedListings.length;
+
+        setMarketStats({
+          totalVolume: totalVolume.toFixed(1),
+          change24h: 0,
+          activeTrades: formattedListings.length,
+          avgPrice: avgPrice.toFixed(3)
+        });
       }
 
       setLoading(false);

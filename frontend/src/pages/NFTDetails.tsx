@@ -1,20 +1,120 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getNFTById, defaultNFT, type MintedNFT } from '../constant/mockData';
+import { useConnection, useWallet } from '@solana/wallet-adapter-react';
+import { PublicKey } from '@solana/web3.js';
+import { BadgeCheck, ChevronLeft, Globe2 } from 'lucide-react';
+import { fetchMetadata } from '../services/metaplex';
+import { getProgram } from '../services/solana';
+import { AnchorProvider } from '@coral-xyz/anchor';
+import { useToast } from '../contexts/ToastContext';
+
+interface NFTMetadata {
+  name: string;
+  description: string;
+  image: string;
+  attributes: Array<{
+    trait_type: string;
+    value: string | number;
+  }>;
+  location?: string;
+  category?: string;
+  price?: number;
+  credits?: number;
+  impact?: string;
+  tokenId?: string;
+}
 
 const NFTDetails: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { connection } = useConnection();
+  const wallet = useWallet();
+  const { addToast }: any = useToast();
+  const [metadata, setMetadata] = useState<NFTMetadata | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const nft: MintedNFT | undefined = id
-    ? getNFTById(id) ?? {
-      ...defaultNFT,
-      id: id,
-      name: `Carbon Credit NFT #${id}`,
-    }
-    : undefined;
+  useEffect(() => {
+    const loadNFTData = async () => {
+      if (!id || !connection) return;
 
-  if (!id || !nft) {
+      try {
+        const mintPubkey = new PublicKey(id);
+        const metaplexData = await fetchMetadata(connection, mintPubkey);
+
+        // Create provider if wallet is connected
+        const provider = wallet.connected
+          ? new AnchorProvider(connection, wallet as any, { commitment: 'confirmed' })
+          : null;
+
+        const program = provider ? getProgram(connection, provider) : null;
+        let listingData = null;
+
+        if (program) {
+          try {
+            // Fetch listing data if available
+            const listings = await program.account.listing.all([
+              {
+                memcmp: {
+                  offset: 8, // Offset for mint field
+                  bytes: mintPubkey.toBase58()
+                }
+              }
+            ]);
+            if (listings.length > 0) {
+              listingData = listings[0].account;
+            }
+          } catch (error) {
+            console.error('Error fetching listing:', error);
+          }
+        }
+
+        let jsonMetadata: any = {};
+
+        if (metaplexData.data.uri) {
+          if (metaplexData.data.uri.startsWith('data:application/json;base64,')) {
+            const base64Data = metaplexData.data.uri.replace('data:application/json;base64,', '');
+            const decodedData = atob(base64Data);
+            jsonMetadata = JSON.parse(decodedData);
+          } else if (metaplexData.data.uri.startsWith('ipfs://')) {
+            const ipfsGatewayURL = metaplexData.data.uri.replace('ipfs://', 'https://ipfs.io/ipfs/');
+            const response = await fetch(ipfsGatewayURL);
+            if (response.ok) {
+              jsonMetadata = await response.json();
+            }
+          } else if (metaplexData.data.uri.startsWith('http')) {
+            const response = await fetch(metaplexData.data.uri);
+            if (response.ok) {
+              jsonMetadata = await response.json();
+            }
+          }
+        }
+
+        const nftData: NFTMetadata = {
+          name: metaplexData.data.name || `Carbon Credit #${id.slice(0, 8)}`,
+          description: jsonMetadata.description || 'This NFT represents verified carbon credits tied to a real-world climate project.',
+          image: jsonMetadata.image || 'https://placehold.co/400x400',
+          tokenId: id,
+          attributes: jsonMetadata.attributes || [],
+          location: jsonMetadata.location,
+          category: jsonMetadata.category || jsonMetadata.attributes?.find((a: any) => a.trait_type === 'Project Type')?.value,
+          credits: jsonMetadata.attributes?.find((a: any) => a.trait_type === 'Credits')?.value || 1,
+          impact: jsonMetadata.attributes?.find((a: any) => a.trait_type === 'Impact')?.value,
+          price: listingData ? listingData.price.toNumber() / 1e9 : undefined // Convert from lamports to SOL
+        };
+
+        setMetadata(nftData);
+      } catch (error) {
+        console.error('Error loading NFT data:', error);
+        addToast('Failed to load NFT data', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadNFTData();
+  }, [id, connection, wallet, addToast]);
+
+  if (!id || (!loading && !metadata)) {
     return (
       <div className="min-h-screen bg-gray-900">
         <div className="pt-24 pb-16">
@@ -35,6 +135,21 @@ const NFTDetails: React.FC = () => {
     );
   }
 
+  if (loading || !metadata) {
+    return (
+      <div className="min-h-screen bg-gray-900">
+        <div className="pt-24 pb-16">
+          <div className="container mx-auto px-6 max-w-5xl text-white">
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500 mx-auto"></div>
+              <p className="text-gray-400 mt-4">Loading NFT details...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-900">
       <div className="pt-24 pb-16">
@@ -44,14 +159,7 @@ const NFTDetails: React.FC = () => {
             onClick={() => navigate(-1)}
             className="mb-6 inline-flex items-center gap-2 text-gray-300 hover:text-white transition-colors"
           >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-            </svg>
+            <ChevronLeft className="w-5 h-5" />
             Back
           </button>
 
@@ -62,8 +170,8 @@ const NFTDetails: React.FC = () => {
               {/* NFT Image */}
               <div className="bg-gray-800/50 border border-gray-700/50 rounded-2xl overflow-hidden hover:border-teal-500/50 transition-colors">
                 <img
-                  src={nft.image}
-                  alt={nft.name}
+                  src={metadata.image}
+                  alt={metadata.name}
                   className="w-full h-[400px] object-cover"
                 />
               </div>
@@ -72,7 +180,7 @@ const NFTDetails: React.FC = () => {
               <div className="mt-6">
                 <h3 className="text-white font-semibold text-lg mb-3">Attributes</h3>
                 <div className="grid grid-cols-2 gap-3">
-                  {nft.attributes.map((attr, idx) => (
+                  {metadata.attributes.map((attr, idx) => (
                     <div
                       key={`${attr.trait_type}-${idx}`}
                       className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-4 hover:border-teal-500/30 transition-colors"
@@ -94,21 +202,21 @@ const NFTDetails: React.FC = () => {
               {/* Main Info Card */}
               <div className="bg-gray-800/50 border border-gray-700/50 rounded-2xl p-6">
                 {/* Category Badge */}
-                {nft.category && (
+                {metadata.category && (
                   <div className="inline-block mb-3">
                     <span className="px-3 py-1 bg-teal-500/20 text-teal-400 rounded-full text-xs font-medium">
-                      {nft.category}
+                      {metadata.category}
                     </span>
                   </div>
                 )}
 
                 {/* Title */}
-                <h1 className="text-3xl font-bold text-white mb-2">{nft.name}</h1>
+                <h1 className="text-3xl font-bold text-white mb-2">{metadata.name}</h1>
 
                 {/* Token ID */}
                 <div className="text-gray-400 text-sm mb-6">
                   <span className="font-medium">Token ID:</span>{' '}
-                  <span className="font-mono break-all">{nft.tokenId}</span>
+                  <span className="font-mono break-all">{metadata.tokenId}</span>
                 </div>
 
                 {/* Price & Credits Grid */}
@@ -116,17 +224,17 @@ const NFTDetails: React.FC = () => {
                   <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700/30">
                     <div className="text-gray-400 text-sm mb-1">Current Price</div>
                     <div className="text-white text-2xl font-bold">
-                      {nft.price?.toFixed(3)} ETH
+                      {metadata.price ? `${metadata.price.toFixed(3)} SOL` : 'Not Listed'}
                     </div>
                     <div className="text-gray-500 text-xs mt-1">
-                      ≈ ${(nft.price! * 2400).toFixed(2)} USD
+                      {metadata.price && `≈ $${(metadata.price * 20).toFixed(2)} USD`}
                     </div>
                   </div>
                   <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700/30">
                     <div className="text-gray-400 text-sm mb-1">Available Credits</div>
-                    <div className="text-white text-2xl font-bold">{nft.credits}</div>
+                    <div className="text-white text-2xl font-bold">{metadata.credits}</div>
                     <div className="text-teal-400 text-xs mt-1">
-                      {nft.impact}
+                      {metadata.impact}
                     </div>
                   </div>
                 </div>
@@ -134,8 +242,7 @@ const NFTDetails: React.FC = () => {
                 {/* Description */}
                 <div className="mb-6">
                   <p className="text-gray-300 leading-relaxed">
-                    {nft.description ||
-                      'This NFT represents verified carbon credits tied to a real-world climate project. Ownership allows trading, offset claims, and on-chain provenance of environmental impact.'}
+                    {metadata.description}
                   </p>
                 </div>
 
@@ -159,9 +266,7 @@ const NFTDetails: React.FC = () => {
               {/* Project Overview Card */}
               <div className="bg-gray-800/50 border border-gray-700/50 rounded-2xl p-6">
                 <h2 className="text-white font-semibold text-lg mb-4 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+                  <BadgeCheck className="w-5 h-5 text-teal-400" />
                   Project Overview
                 </h2>
                 <ul className="text-gray-300 space-y-3 text-sm">
@@ -185,16 +290,13 @@ const NFTDetails: React.FC = () => {
               </div>
 
               {/* Location Info if available */}
-              {nft.location && (
+              {metadata.location && (
                 <div className="bg-gray-800/50 border border-gray-700/50 rounded-2xl p-6">
                   <h2 className="text-white font-semibold text-lg mb-3 flex items-center gap-2">
-                    <svg className="w-5 h-5 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
+                    <Globe2 className="w-5 h-5 text-teal-400" />
                     Project Location
                   </h2>
-                  <p className="text-gray-300">{nft.location}</p>
+                  <p className="text-gray-300">{metadata.location}</p>
                 </div>
               )}
             </div>
