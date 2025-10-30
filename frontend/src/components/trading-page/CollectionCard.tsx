@@ -1,4 +1,7 @@
 import React from 'react';
+// Preferred placeholder for Marketplace / Home when backend image missing
+const DEFAULT_PLACEHOLDER = 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=400&q=80';
+import placeholderUrl from '../../assets/nft-placeholder.svg?url';
 import { CollectionItem } from '../../types/collection.types';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { useNavigate } from 'react-router-dom'; // <-- BƯỚC 1: Import hook
@@ -38,15 +41,22 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({ item }) => {
     navigate(`/nft/${item.mint}`); 
   };
 
+  const imageSrc = item?.metadata?.image || DEFAULT_PLACEHOLDER || placeholderUrl;
+
   return (
     <div className="bg-gray-800/40 backdrop-blur-sm rounded-2xl border border-gray-700/50 overflow-hidden shadow-lg ...">
-      
       {/* (Phần Hình ảnh, Tên, Tags... giữ nguyên) */}
       <div className="w-full h-48 bg-gray-900">
         <img
-          src={item.metadata.image}
-          alt={item.metadata.name}
+          src={imageSrc}
+          alt={item?.metadata?.name || 'Carbon Credit NFT'}
           className="w-full h-full object-cover"
+          onError={(e) => {
+            // Nếu URL ảnh lỗi, fallback về DEFAULT_PLACEHOLDER sau đó tới svg placeholder
+            const target = e.currentTarget as HTMLImageElement;
+            if (target.src !== DEFAULT_PLACEHOLDER) target.src = DEFAULT_PLACEHOLDER;
+            else if (target.src !== placeholderUrl) target.src = placeholderUrl;
+          }}
         />
       </div>
       <div className="p-4">

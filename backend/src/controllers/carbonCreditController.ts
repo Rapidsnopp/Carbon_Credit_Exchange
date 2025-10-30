@@ -87,8 +87,10 @@ export const getCarbonCreditByMint = async (req: Request, res: Response) => {
 export const getCarbonCreditsByWallet = async (req: Request, res: Response) => {
   try {
     const { address } = req.params;
+    console.log('🔍 Fetching NFTs for wallet:', address);
     
     const nfts = await SolanaService.getWalletNFTs(address);
+    console.log('📦 Found', nfts.length, 'NFTs in wallet');
     
     // Enrich with metadata and listing info
     const enrichedNFTs = await Promise.all(
@@ -110,13 +112,14 @@ export const getCarbonCreditsByWallet = async (req: Request, res: Response) => {
       })
     );
     
+    console.log('✅ Enriched NFTs:', enrichedNFTs.length);
     res.json({
       success: true,
       data: enrichedNFTs,
       count: enrichedNFTs.length,
     });
   } catch (error: any) {
-    console.error('Error fetching wallet NFTs:', error);
+    console.error('❌ Error fetching wallet NFTs:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch wallet NFTs',

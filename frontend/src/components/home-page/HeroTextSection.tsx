@@ -10,7 +10,7 @@ export default function HeroTextSection() {
                     </h1>
 
                     <p className="text-gray-300 text-base md:text-lg mb-8 leading-relaxed">
-                        With Caelum, anyone—from individuals to businesses—can buy, trade, or retire carbon credits
+                        With verdeX, anyone—from individuals to businesses—can buy, trade, or retire carbon credits
                         in just a few clicks. Thanks to blockchain and fractional ownership, every action is transparent,
                         secure, and trackable in real time. Join the waitlist today or follow your sustainability journey on X.
                     </p>

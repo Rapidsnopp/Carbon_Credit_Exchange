@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Wallet } from 'lucide-react';
+import { Wallet, Package, ShoppingCart, CheckCircle, Flame } from 'lucide-react';
 
 // 1. Import Context và API thật
 import { useWallet } from '@solana/wallet-adapter-react';
@@ -11,8 +11,25 @@ import { CollectionItem } from '../types/collection.types';
 import { CollectionCard } from '../components/trading-page/CollectionCard';
 // import { useAnchorWallet } from '@solana/wallet-adapter-react'; // Sẽ cần cho bước "List"
 
+// Define NFT categories
+type NFTCategory = 'minted' | 'listed' | 'purchased' | 'retired';
+
+interface CategorizedNFTs {
+  minted: CollectionItem[];
+  listed: CollectionItem[];
+  purchased: CollectionItem[];
+  retired: CollectionItem[];
+}
+
 const MyNFTs: React.FC = () => {
-  const [ownedNFTs, setOwnedNFTs] = useState<CollectionItem[]>([]);
+  const [allNFTs, setAllNFTs] = useState<CollectionItem[]>([]);
+  const [categorizedNFTs, setCategorizedNFTs] = useState<CategorizedNFTs>({
+    minted: [],
+    listed: [],
+    purchased: [],
+    retired: [],
+  });
+  const [activeCategory, setActiveCategory] = useState<NFTCategory | 'all'>('all');
   const [loading, setLoading] = useState(true);
 
   // 3. Lấy ví của người dùng từ Solana Wallet Adapter
@@ -25,23 +42,76 @@ const MyNFTs: React.FC = () => {
   useEffect(() => {
     const fetchOwnedNFTs = async () => {
       if (!publicKey) {
+        console.log('⚠️ No wallet connected');
         setLoading(false);
-        setOwnedNFTs([]);
+        setAllNFTs([]);
+        setCategorizedNFTs({
+          minted: [],
+          listed: [],
+          purchased: [],
+          retired: [],
+        });
         return;
       }
 
+      console.log('🔍 Fetching NFTs for wallet:', publicKey.toBase58());
       setLoading(true);
       try {
-        // Gọi API backend của bạn
-        const response = await api.get(`/api/carbon-credits/wallet/${publicKey.toBase58()}`);
-
+        // Gọi API backend để lấy tất cả NFT của ví
+        const apiUrl = `/carbon-credits/wallet/${publicKey.toBase58()}`;
+        console.log('📡 API Call:', apiUrl);
+        const response = await api.get(apiUrl);
+        console.log('✅ API Response:', response.data);
         if (response.data.success) {
-          // Lọc ra những NFT chưa bị "retired" (đốt)
-          const validNFTs = response.data.data.filter((nft: any) => !nft.isRetired);
-          setOwnedNFTs(validNFTs);
+          const nfts = response.data.data;
+          setAllNFTs(nfts);
+
+          // Phân loại NFT theo trạng thái
+          const categorized: CategorizedNFTs = {
+            minted: [],
+            listed: [],
+            purchased: [],
+            retired: [],
+          };
+
+          nfts.forEach((nft: any) => {
+            // NFT đã retired
+            if (nft.isRetired || nft.retirement) {
+              categorized.retired.push(nft);
+            }
+            // NFT đang list trên sàn (chưa bán)
+            else if (nft.isListed || nft.listing) {
+              categorized.listed.push(nft);
+            }
+            // NFT đã mua từ người khác (owner khác với creator/minter)
+            // Note: Cần thêm logic để phân biệt minted vs purchased
+            // Tạm thời: nếu không có listing và không retired thì là minted
+            else {
+              // TODO: Thêm trường 'originalMinter' trong metadata để phân biệt
+              // Hiện tại tất cả NFT chưa list và chưa retired sẽ được coi là minted
+              categorized.minted.push(nft);
+            }
+          });
+
+          setCategorizedNFTs(categorized);
+
+          console.log('📊 NFT Categories:', {
+            total: nfts.length,
+            minted: categorized.minted.length,
+            listed: categorized.listed.length,
+            purchased: categorized.purchased.length,
+            retired: categorized.retired.length,
+          });
+        } else {
+          console.warn('⚠️ API returned success: false');
         }
-      } catch (error) {
-        console.error('Error fetching owned NFTs:', error);
+      } catch (error: any) {
+        console.error('❌ Error fetching owned NFTs:', error);
+        console.error('Error details:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status,
+        });
       } finally {
         setLoading(false);
       }
@@ -49,6 +119,16 @@ const MyNFTs: React.FC = () => {
 
     fetchOwnedNFTs();
   }, [publicKey]); // Chạy lại mỗi khi ví thay đổi
+
+  // Get NFTs to display based on active category
+  const getDisplayNFTs = (): CollectionItem[] => {
+    if (activeCategory === 'all') {
+      return allNFTs;
+    }
+    return categorizedNFTs[activeCategory];
+  };
+
+  const displayNFTs = getDisplayNFTs();
 
   // 5. Hàm xử lý "List for Sale" (Đăng bán)
   const handleListForSale = async (nft: CollectionItem) => {
@@ -86,10 +166,10 @@ const MyNFTs: React.FC = () => {
           {/* Header */}
           <div className="text-center mb-12">
             <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent mb-4">
-              My Carbon Credits (SOL)
+              My Carbon Credits
             </h1>
             <p className="text-gray-300 text-lg max-w-2xl mx-auto">
-              Quản lý các tín chỉ carbon (NFT) bạn sở hữu trên Solana.
+              Quản lý các tín chỉ carbon (NFT) bạn sở hữu trên Solana
             </p>
           </div>
 
@@ -103,37 +183,143 @@ const MyNFTs: React.FC = () => {
             </div>
           </div>
 
+          {/* Category Tabs */}
+          {publicKey && !loading && (
+            <div className="flex flex-wrap justify-center gap-4 mb-8">
+              <button
+                onClick={() => setActiveCategory('all')}
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${activeCategory === 'all'
+                    ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg'
+                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  }`}
+              >
+                <Package className="w-4 h-4" />
+                All ({allNFTs.length})
+              </button>
+
+              <button
+                onClick={() => setActiveCategory('minted')}
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${activeCategory === 'minted'
+                    ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg'
+                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  }`}
+              >
+                <Package className="w-4 h-4" />
+                Minted ({categorizedNFTs.minted.length})
+              </button>
+
+              <button
+                onClick={() => setActiveCategory('listed')}
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${activeCategory === 'listed'
+                    ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg'
+                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  }`}
+              >
+                <ShoppingCart className="w-4 h-4" />
+                Listed ({categorizedNFTs.listed.length})
+              </button>
+
+              <button
+                onClick={() => setActiveCategory('purchased')}
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${activeCategory === 'purchased'
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg'
+                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  }`}
+              >
+                <CheckCircle className="w-4 h-4" />
+                Purchased ({categorizedNFTs.purchased.length})
+              </button>
+
+              <button
+                onClick={() => setActiveCategory('retired')}
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${activeCategory === 'retired'
+                    ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-lg'
+                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  }`}
+              >
+                <Flame className="w-4 h-4" />
+                Retired ({categorizedNFTs.retired.length})
+              </button>
+            </div>
+          )}
+
           {/* NFT Grid */}
           {loading ? (
             <div className="flex justify-center items-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-teal-500"></div>
             </div>
-          ) : ownedNFTs.length > 0 ? (
-
+          ) : displayNFTs.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 mb-12">
-              {ownedNFTs.map((nft) => (
+              {displayNFTs.map((nft: any) => (
                 <div key={nft.mint}>
-                  {/* Dùng component CollectionCard (SOL) đã tạo */}
+                  {/* Dùng component CollectionCard */}
                   <CollectionCard item={nft} />
 
-                  {/* Thêm nút "List for Sale" */}
-                  <button
-                    onClick={() => handleListForSale(nft)}
-                    className="w-full mt-2 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-medium rounded-lg transition-all duration-300 text-center"
-                  >
-                    List for Sale
-                  </button>
+                  {/* Status Badge */}
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    {nft.isRetired || nft.retirement ? (
+                      <span className="px-3 py-1 bg-red-500/20 text-red-400 text-xs font-medium rounded-full border border-red-500/30">
+                        🔥 Retired
+                      </span>
+                    ) : nft.isListed || nft.listing ? (
+                      <span className="px-3 py-1 bg-yellow-500/20 text-yellow-400 text-xs font-medium rounded-full border border-yellow-500/30">
+                        🏷️ Listed for Sale
+                      </span>
+                    ) : (
+                      <span className="px-3 py-1 bg-blue-500/20 text-blue-400 text-xs font-medium rounded-full border border-blue-500/30">
+                        ✨ Owned
+                      </span>
+                    )}
+                  </div>
+                  {/* Action Buttons */}
+                  {!nft.isRetired && !nft.retirement && (
+                    <div className="mt-2">
+                      {nft.isListed || nft.listing ? (
+                        <button
+                          onClick={() => alert('TODO: Unlist NFT')}
+                          className="w-full py-2.5 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white font-medium rounded-lg transition-all duration-300 text-center"
+                        >
+                          Unlist from Sale
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleListForSale(nft)}
+                          className="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-medium rounded-lg transition-all duration-300 text-center"
+                        >
+                          List for Sale
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           ) : (
             <div className="text-center py-16">
-              {/* ... (UI "No NFTs in your wallet" giữ nguyên) ... */}
-              <h3 className="text-2xl font-bold text-white mb-2">No NFTs in your wallet</h3>
+              <h3 className="text-2xl font-bold text-white mb-2">
+                {activeCategory === 'all'
+                  ? 'No NFTs in your wallet'
+                  : `No ${activeCategory} NFTs`
+                }
+              </h3>
               <p className="text-gray-400 max-w-md mx-auto mb-8">
-                Bạn chưa sở hữu tín chỉ carbon nào. Hãy đi mint hoặc mua.
+                {activeCategory === 'all'
+                  ? 'Bạn chưa sở hữu tín chỉ carbon nào. Hãy đi mint hoặc mua.'
+                  : `Bạn không có NFT nào trong danh mục ${activeCategory}.`
+                }
               </p>
-              <Link to="/trading" className="...">Browse Marketplace</Link>
+              <Link
+                to="/mint"
+                className="inline-block px-6 py-3 bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-medium rounded-lg hover:from-teal-600 hover:to-cyan-600 transition-all duration-300 mr-4"
+              >
+                Mint NFT
+              </Link>
+              <Link
+                to="/trading"
+                className="inline-block px-6 py-3 bg-gray-800 text-white font-medium rounded-lg hover:bg-gray-700 transition-all duration-300"
+              >
+                Browse Marketplace
+              </Link>
             </div>
           )}
         </div>
