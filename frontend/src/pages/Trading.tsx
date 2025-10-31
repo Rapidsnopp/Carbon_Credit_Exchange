@@ -3,12 +3,31 @@ import { ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
+import { PublicKey } from '@solana/web3.js';
+import * as anchor from "@coral-xyz/anchor";
 import { TradingAsset } from "../types"
 import HowToTrade from '../components/trading-page/HowToTrade';
 import { getTradingAssets, getMarketStats } from '../constant/mockData';
 import { useToast } from '../contexts/ToastContext';
-import { buyCarbonCredit, listForSale, checkNFTOwnership } from '../services/solana';
+import { buyCarbonCredit, listForSale, checkNFTOwnership, getProgram, getExchangePDA } from '../services/solana';
+import { fetchMetadata } from '../services/metaplex';
 import apiService from '../services/api';
+
+// Helper function to get category badge styling
+const getCategoryBadge = (category: string) => {
+  const styles: Record<string, { bg: string; text: string; border: string; icon: string }> = {
+    'Renewable Energy': { bg: 'bg-yellow-500/10', text: 'text-yellow-400', border: 'border-yellow-500/20', icon: '⚡' },
+    'Forestry': { bg: 'bg-green-500/10', text: 'text-green-400', border: 'border-green-500/20', icon: '🌲' },
+    'Agriculture': { bg: 'bg-lime-500/10', text: 'text-lime-400', border: 'border-lime-500/20', icon: '🌾' },
+    'Waste Management': { bg: 'bg-orange-500/10', text: 'text-orange-400', border: 'border-orange-500/20', icon: '♻️' },
+    'Industrial': { bg: 'bg-gray-500/10', text: 'text-gray-400', border: 'border-gray-500/20', icon: '🏭' },
+    'Afforestation': { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/20', icon: '🌳' },
+    'Reforestation': { bg: 'bg-teal-500/10', text: 'text-teal-400', border: 'border-teal-500/20', icon: '🌿' },
+    'Other': { bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/20', icon: '📋' },
+  };
+
+  return styles[category] || styles['Other'];
+};
 
 const Trading: React.FC = () => {
   // Default placeholder used when listing image is missing or fails to load
@@ -17,28 +36,21 @@ const Trading: React.FC = () => {
   const [selectedAsset, setSelectedAsset] = useState<TradingAsset | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [transactionStatus, setTransactionStatus] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string>('');
   const itemsPerPage = 4;
-  
-  // Helper function to get category badge styling
-  const getCategoryBadge = (category: string) => {
-    const styles: Record<string, { bg: string; text: string; border: string; icon: string }> = {
-      'Renewable Energy': { bg: 'bg-yellow-500/10', text: 'text-yellow-400', border: 'border-yellow-500/20', icon: '⚡' },
-      'Forestry': { bg: 'bg-green-500/10', text: 'text-green-400', border: 'border-green-500/20', icon: '🌲' },
-      'Agriculture': { bg: 'bg-lime-500/10', text: 'text-lime-400', border: 'border-lime-500/20', icon: '🌾' },
-      'Waste Management': { bg: 'bg-orange-500/10', text: 'text-orange-400', border: 'border-orange-500/20', icon: '♻️' },
-      'Industrial': { bg: 'bg-gray-500/10', text: 'text-gray-400', border: 'border-gray-500/20', icon: '🏭' },
-      'Afforestation': { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/20', icon: '🌳' },
-      'Reforestation': { bg: 'bg-teal-500/10', text: 'text-teal-400', border: 'border-teal-500/20', icon: '🌿' },
-      'Other': { bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/20', icon: '📋' },
-    };
-    
-    return styles[category] || styles['Other'];
-  };
-  
+
   // Real blockchain data states
-  const [realListings, setRealListings] = useState([]);
+  interface MarketStats {
+    totalVolume: string;
+    change24h: number;
+    activeTrades: number;
+    avgPrice: string;
+  }
+
+  const [realListings, setRealListings] = useState<TradingAsset[]>([]);
   const [loading, setLoading] = useState(true);
-  const [marketStats, setMarketStats] = useState(null);
+  const [marketStats, setMarketStats] = useState<MarketStats | null>(null);
   const [useRealData, setUseRealData] = useState(true); // Toggle between real/mock data
 
   // Wallet and connection hooks
@@ -68,62 +80,109 @@ const Trading: React.FC = () => {
   const fetchListings = async () => {
     try {
       setLoading(true);
-      
-      // Fetch listings from backend/blockchain
-      const response = await apiService.getAllListings();
-      
-      if (response.success && response.data && response.data.length > 0) {
-        // Debug: Log raw response
-        console.log('🔍 Raw backend response:', response.data[0]);
-        console.log('🔍 Metadata structure:', response.data[0].metadata);
-        
-        // Transform backend data to match TradingAsset format
-        const formattedListings: TradingAsset[] = response.data.map((listing: any) => {
-          // Convert price from lamports to SOL (1 SOL = 1,000,000,000 lamports)
-          const priceInSOL = listing.price ? parseFloat(listing.price) / 1_000_000_000 : 0;
-          
-          console.log('🔍 Processing listing:', {
-            mint: listing.mint,
-            'metadata.name': listing.metadata?.name,
-            'metadata.location': listing.metadata?.location,
-            'metadata.credits': listing.metadata?.credits,
-            'metadata.image': listing.metadata?.image,
-          });
-          
-          // The formatted object that will be used in UI
-          const formatted = {
-            id: listing.mint || listing._id,
-            // Try multiple possible locations for name
-            name: listing.metadata?.name || listing.name || `Carbon Credit #${listing.mint?.slice(0, 8)}`,
-            // Try multiple possible locations for location
-            location: listing.metadata?.location || listing.location || 'Unknown Location',
-            // Try multiple possible locations for credits
-            credits: listing.metadata?.credits || listing.credits || 0,
-            price: priceInSOL,
-            change: 0, // Calculate based on historical data if available
-            // Try multiple possible locations for image
-            image: listing.metadata?.image || listing.image || 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=400&q=80',
-            // Try multiple possible locations for category
-            category: listing.metadata?.category || listing.category || 'Carbon Credit',
-            mint: listing.mint // Add mint address for blockchain operations
-          };
-          
-          console.log('🔍 Formatted listing:', formatted);
-          
-          return formatted;
-        });
-        
-        setRealListings(formattedListings as any);
-        setUseRealData(true);
-        console.log('✅ Loaded real blockchain listings:', formattedListings.length);
-        console.log('📊 Sample listing:', formattedListings[0]); // Debug log
-      } else {
-        // No listings found, use mock data
-        setRealListings([]);
-        setUseRealData(false);
-        console.log('ℹ️ No blockchain listings found, using mock data');
+
+      if (!connection || !wallet) {
+        throw new Error('Connection and wallet are required');
       }
-      
+
+      console.log('Fetching listings...');
+      const program = getProgram(connection, wallet);
+
+      // Get exchange PDA
+      const exchangePda = await getExchangePDA();
+      console.log('Exchange PDA:', exchangePda.toBase58());
+
+      // Get all listings from program
+      const allListings = await program.account.listing.all();
+      console.log('Found listings:', allListings.length);
+
+      // Chạy gọi ở bên backend
+      const response = await apiService.getAllListings();
+
+      // Format listings and fetch metadata
+      const formattedListings = await Promise.all(allListings.map(async (item: any) => {
+        const listing = item.account;
+        const mint = new PublicKey(listing.mint);
+
+        try {
+          // Fetch and decode metadata
+          const metadata = await fetchMetadata(connection, mint);
+          console.log('Fetched metadata:', metadata);
+
+          let jsonMetadata = null;
+          if (metadata.data.uri) {
+            if (metadata.data.uri.startsWith('data:application/json;base64,')) {
+              // Handle base64 encoded JSON
+              try {
+                const base64Data = metadata.data.uri.replace('data:application/json;base64,', '');
+                const decodedData = atob(base64Data);
+                jsonMetadata = JSON.parse(decodedData);
+                console.log('Parsed base64 metadata:', jsonMetadata);
+              } catch (err) {
+                console.error('Error parsing base64 metadata:', err);
+              }
+            } else if (metadata.data.uri.startsWith('ipfs://')) {
+              // Handle IPFS URI
+              try {
+                const ipfsGatewayURL = metadata.data.uri.replace('ipfs://', 'https://ipfs.io/ipfs/');
+                const response = await fetch(ipfsGatewayURL);
+                if (response.ok) {
+                  jsonMetadata = await response.json();
+                  console.log('Fetched IPFS metadata:', jsonMetadata);
+                }
+              } catch (err) {
+                console.error('Error fetching IPFS metadata:', err);
+              }
+            }
+          }
+
+          return {
+            id: mint.toBase58(),
+            name: metadata.data.name || `Carbon Credit #${mint.toBase58().slice(0, 8)}`,
+            location: jsonMetadata?.location || 'Unknown Location',
+            credits: jsonMetadata?.attributes?.find((a: any) => a.trait_type === 'Credits')?.value || 0,
+            price: listing.price.toNumber() / anchor.web3.LAMPORTS_PER_SOL,
+            change: 0,
+            image: jsonMetadata?.image || 'https://placehold.co/400x400',
+            category: jsonMetadata?.attributes?.find((a: any) => a.trait_type === 'Project Type')?.value || 'Carbon Credit',
+            mint: mint.toBase58()
+          };
+        } catch (error) {
+          console.error('Error processing metadata for mint:', mint.toBase58(), error);
+          return {
+            id: mint.toBase58(),
+            name: `Carbon Credit #${mint.toBase58().slice(0, 8)}`,
+            location: 'Unknown Location',
+            credits: 0,
+            price: listing.price.toNumber() / anchor.web3.LAMPORTS_PER_SOL,
+            change: 0,
+            image: 'https://placehold.co/400x400',
+            category: 'Carbon Credit',
+            mint: mint.toBase58()
+          };
+        }
+      }));
+
+      setRealListings(formattedListings);
+      setUseRealData(true);
+      console.log('✅ Loaded real blockchain listings:', formattedListings.length);
+      console.log('📊 Sample listing:', formattedListings[0]); // Debug log
+
+      // Calculate market stats
+      if (formattedListings.length > 0) {
+        const totalVolume = formattedListings.reduce((sum, listing) =>
+          sum + (listing.price * listing.credits), 0);
+        const avgPrice = formattedListings.reduce((sum, listing) =>
+          sum + listing.price, 0) / formattedListings.length;
+
+        setMarketStats({
+          totalVolume: totalVolume.toFixed(1),
+          change24h: 0,
+          activeTrades: formattedListings.length,
+          avgPrice: avgPrice.toFixed(3)
+        });
+      }
+
       setLoading(false);
     } catch (error) {
       console.error('Error fetching listings:', error);
@@ -147,11 +206,11 @@ const Trading: React.FC = () => {
   const currentMarketStats = React.useMemo(() => {
     if (useRealData && realListings.length > 0) {
       // Calculate stats from real data
-      const totalVolume = realListings.reduce((sum: number, listing: any) => 
+      const totalVolume = realListings.reduce((sum: number, listing: any) =>
         sum + (listing.price * listing.credits), 0);
-      const avgPrice = realListings.reduce((sum: number, listing: any) => 
+      const avgPrice = realListings.reduce((sum: number, listing: any) =>
         sum + listing.price, 0) / realListings.length;
-      
+
       return {
         totalVolume: totalVolume.toFixed(1),
         change24h: 0, // Calculate from historical data if available
@@ -195,73 +254,103 @@ const Trading: React.FC = () => {
   };
 
   const handleBuy = async () => {
-    if (!buyAmount || !selectedAsset) {
-      addToast('Please select an asset and enter amount', 'warning');
-      return;
-    }
-
-    // Check if wallet is connected
-    if (!wallet.connected) {
-      addToast('Please connect your wallet first', 'error');
-      return;
-    }
-
-    // Check if this is real blockchain data
-    if (!selectedAsset.mint) {
-      alert(`Demo mode: Would buy ${buyAmount} credits of ${selectedAsset.name}`);
-      setBuyAmount('');
-      return;
-    }
-
     try {
+      setTransactionStatus('');
+      setErrorMessage('');
+
+      if (!buyAmount || !selectedAsset) {
+        setErrorMessage('Please select an asset and enter amount');
+        addToast('Please select an asset and enter amount', 'warning');
+        return;
+      }
+
+      // Check if wallet is connected
+      if (!wallet.connected) {
+        setErrorMessage('Please connect your wallet first');
+        addToast('Please connect your wallet first', 'error');
+        return;
+      }
+
+      // Check if this is real blockchain data
+      if (!selectedAsset.mint) {
+        setTransactionStatus(`Demo: Buying ${buyAmount} credits of ${selectedAsset.name}`);
+        alert(`Demo mode: Would buy ${buyAmount} credits of ${selectedAsset.name}`);
+        setBuyAmount('');
+        return;
+      }
+
+      setTransactionStatus('Processing purchase...');
       addToast('Processing purchase...', 'info');
-      
+
       const result = await buyCarbonCredit(
         connection,
         wallet,
         selectedAsset.mint
       );
 
+      setTransactionStatus(`Purchase successful! TX: ${result.signature.slice(0, 8)}...`);
       addToast(`Successfully purchased ${selectedAsset.name}! TX: ${result.signature.slice(0, 8)}...`, 'success');
       setBuyAmount('');
-      
+
       // Refresh listings
       fetchListings();
     } catch (error) {
       console.error('Buy error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Purchase failed. Please try again.';
-      addToast(errorMessage, 'error');
+      const errorMsg = error instanceof Error ? error.message : 'Purchase failed. Please try again.';
+      setErrorMessage(errorMsg);
+      setTransactionStatus('');
+      addToast(errorMsg, 'error');
     }
   };
 
   const handleSell = () => {
-    if (sellAmount && selectedAsset) {
-      alert(`Successfully sold ${sellAmount} credits of ${selectedAsset.name}`);
-      setSellAmount('');
+    try {
+      setTransactionStatus('');
+      setErrorMessage('');
+
+      if (sellAmount && selectedAsset) {
+        setTransactionStatus(`Successfully sold ${sellAmount} credits of ${selectedAsset.name}`);
+        alert(`Successfully sold ${sellAmount} credits of ${selectedAsset.name}`);
+        setSellAmount('');
+      } else {
+        setErrorMessage('Please select an asset and enter amount');
+      }
+    } catch (error) {
+      console.error('Sell error:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Sale failed. Please try again.';
+      setErrorMessage(errorMsg);
+      setTransactionStatus('');
+      addToast(errorMsg, 'error');
     }
   };
 
   const handleListNFT = async () => {
-    if (!listMintAddress || !listPrice) {
-      addToast('Please enter NFT mint address and price', 'warning');
-      return;
-    }
-
-    if (!wallet.connected) {
-      addToast('Please connect your wallet first', 'error');
-      return;
-    }
-
     try {
+      setTransactionStatus('');
+      setErrorMessage('');
+
+      if (!listMintAddress || !listPrice) {
+        setErrorMessage('Please enter NFT mint address and price');
+        addToast('Please enter NFT mint address and price', 'warning');
+        return;
+      }
+
+      if (!wallet.connected) {
+        setErrorMessage('Please connect your wallet first');
+        addToast('Please connect your wallet first', 'error');
+        return;
+      }
+
       const priceInSOL = parseFloat(listPrice);
       if (isNaN(priceInSOL) || priceInSOL <= 0) {
+        setErrorMessage('Please enter a valid price');
         addToast('Please enter a valid price', 'warning');
         return;
       }
 
-      // ✅ Kiểm tra ownership trước khi list
+      setTransactionStatus('Verifying NFT ownership...');
       addToast('Verifying NFT ownership...', 'info');
-      
+
       const ownership = await checkNFTOwnership(
         connection,
         wallet,
@@ -269,14 +358,16 @@ const Trading: React.FC = () => {
       );
 
       if (!ownership.owned) {
-        addToast(
-          ownership.error || 'You do not own this NFT. Cannot list for sale.',
-          'error'
-        );
+        const errorMsg = ownership.error || 'You do not own this NFT. Cannot list for sale.';
+        setErrorMessage(errorMsg);
+        addToast(errorMsg, 'error');
         return;
       }
 
+      setTransactionStatus(`✅ Verified! You own this NFT (Balance: ${ownership.balance})`);
       addToast(`✅ Verified! You own this NFT (Balance: ${ownership.balance})`, 'success');
+
+      setTransactionStatus('Listing NFT on marketplace...');
       addToast('Listing NFT on marketplace...', 'info');
 
       const result = await listForSale(
@@ -286,17 +377,19 @@ const Trading: React.FC = () => {
         priceInSOL
       );
 
+      setTransactionStatus(`Successfully listed NFT! Listing: ${result.listing.slice(0, 8)}...`);
       addToast(`Successfully listed NFT! Listing: ${result.listing.slice(0, 8)}...`, 'success');
       setListMintAddress('');
       setListPrice('');
 
-      // Refresh listings to show the new listing
       addToast('Refreshing marketplace listings...', 'info');
       await fetchListings();
     } catch (error) {
       console.error('List error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to list NFT. Please try again.';
-      addToast(errorMessage, 'error');
+      const errorMsg = error instanceof Error ? error.message : 'Failed to list NFT. Please try again.';
+      setErrorMessage(errorMsg);
+      setTransactionStatus('');
+      addToast(errorMsg, 'error');
     }
   };
 
@@ -312,7 +405,7 @@ const Trading: React.FC = () => {
             <p className="text-gray-300 text-lg max-w-2xl mx-auto">
               Buy, sell, and trade verified carbon credits on our decentralized marketplace
             </p>
-            
+
             {/* Data Source Indicator */}
             <div className="mt-4 flex items-center justify-center gap-3">
               {loading ? (
@@ -422,17 +515,6 @@ const Trading: React.FC = () => {
                               <div>
                                 <h3 className="font-bold text-white text-lg">{asset.name}</h3>
                                 <p className="text-gray-400 text-sm">{asset.location}</p>
-                                {/* Category Badge */}
-                                <div className="mt-1">
-                                  {(() => {
-                                    const badge = getCategoryBadge(asset.category);
-                                    return (
-                                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${badge.bg} ${badge.text} border ${badge.border}`}>
-                                        {badge.icon} {asset.category}
-                                      </span>
-                                    );
-                                  })()}
-                                </div>
                               </div>
                               <div className="text-right">
                                 <p className="text-white font-bold">
@@ -443,8 +525,16 @@ const Trading: React.FC = () => {
                                 </p>
                               </div>
                             </div>
-                            <div className="flex justify-between mt-2">
+                            <div className="flex justify-between items-center mt-2">
                               <span className="text-gray-400 text-sm">Credits: {asset.credits} tCO2e</span>
+                              {(() => {
+                                const badge = getCategoryBadge(asset.category);
+                                return (
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${badge.bg} ${badge.text} border ${badge.border}`}>
+                                    {badge.icon} {asset.category}
+                                  </span>
+                                );
+                              })()}
                             </div>
                           </div>
                         </div>
@@ -508,7 +598,7 @@ const Trading: React.FC = () => {
 
             {/* Trading Panel */}
             <div className="lg:col-span-1">
-              <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700/50 p-6 sticky top-24">
+              <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700/50 p-6 top-24">
                 <div className="flex border-b border-gray-700/50 mb-6">
                   <button
                     className={`flex-1 py-2 px-4 text-center font-medium transition-all ${activeTab === 'buy'
@@ -529,11 +619,10 @@ const Trading: React.FC = () => {
                     Sell
                   </button>
                   <button
-                    className={`flex-1 py-2 px-4 text-center font-medium transition-all ${
-                      activeTab === 'list'
-                        ? 'text-teal-400 border-b-2 border-teal-400'
-                        : 'text-gray-400 hover:text-white'
-                    }`}
+                    className={`flex-1 py-2 px-4 text-center font-medium transition-all ${activeTab === 'list'
+                      ? 'text-teal-400 border-b-2 border-teal-400'
+                      : 'text-gray-400 hover:text-white'
+                      }`}
                     onClick={() => setActiveTab('list')}
                   >
                     List NFT
@@ -583,9 +672,8 @@ const Trading: React.FC = () => {
                     <button
                       onClick={handleListNFT}
                       disabled={!wallet.connected || loading}
-                      className={`w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium rounded-lg transition-all shadow-lg shadow-purple-500/30 ${
-                        (!wallet.connected || loading) ? 'opacity-50 cursor-not-allowed' : ''
-                      }`}
+                      className={`w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium rounded-lg transition-all shadow-lg shadow-purple-500/30 ${(!wallet.connected || loading) ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
                     >
                       {!wallet.connected ? 'Connect Wallet to List' : loading ? 'Loading...' : 'List NFT for Sale'}
                     </button>
@@ -614,25 +702,17 @@ const Trading: React.FC = () => {
                           <ExternalLink className="w-4 h-4 ml-1" />
                         </button>
                       </div>
-                      <p className="text-gray-400 text-sm mb-2">{selectedAsset.location}</p>
-                      
-                      {/* Category Badge */}
-                      <div className="mb-3">
-                        {(() => {
-                          const badge = getCategoryBadge(selectedAsset.category);
-                          return (
-                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${badge.bg} ${badge.text} border ${badge.border}`}>
-                              {badge.icon} {selectedAsset.category}
-                            </span>
-                          );
-                        })()}
-                      </div>
-                      
+                      <p className="text-gray-400 text-sm mb-3">{selectedAsset.location}</p>
                       <div className="flex justify-between text-sm bg-gray-900/50 p-3 rounded-lg">
-                        <span className="text-gray-400">Credits: {selectedAsset.credits} tCO2e</span>
-                        <span className="text-white font-bold">
-                          {selectedAsset.price.toFixed(3)} {useRealData && realListings.length > 0 ? 'SOL' : 'ETH'}
-                        </span>
+                        <span className="text-gray-400">Credits: {selectedAsset.credits}</span>
+                        <div>
+                          <span className="text-white font-bold block">
+                            {selectedAsset.price.toFixed(3)} {useRealData && realListings.length > 0 ? 'SOL' : 'ETH'}
+                          </span>
+                          <span className="text-gray-500 text-xs">
+                            ≈ ${(selectedAsset.price * 20).toFixed(2)} USD
+                          </span>
+                        </div>
                       </div>
                     </div>
 
@@ -658,15 +738,32 @@ const Trading: React.FC = () => {
                       </p>
                     </div>
 
+                    {/* Transaction Status/Error Display */}
+                    {transactionStatus && (
+                      <div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                        <p className="text-sm text-green-400">
+                          {transactionStatus}
+                        </p>
+                      </div>
+                    )}
+                    {errorMessage && (
+                      <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                        <p className="text-sm text-red-400">
+                          {errorMessage}
+                        </p>
+                      </div>
+                    )}
+
                     <button
                       onClick={activeTab === 'buy' ? handleBuy : handleSell}
+                      disabled={loading || !wallet.connected}
                       className={`w-full py-3 ${activeTab === 'buy'
                         ? 'bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600'
                         : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600'
                         } text-white font-medium rounded-lg transition-all shadow-lg ${activeTab === 'buy' ? 'shadow-teal-500/30' : 'shadow-cyan-500/30'
-                        }`}
+                        } ${(loading || !wallet.connected) ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
-                      {activeTab === 'buy' ? 'Buy Credits' : 'Sell Credits'}
+                      {loading ? 'Processing...' : !wallet.connected ? 'Connect Wallet' : activeTab === 'buy' ? 'Buy Credits' : 'Sell Credits'}
                     </button>
                   </>
                 ) : (

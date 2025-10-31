@@ -32,7 +32,7 @@ export type VerificationResult = {
 };
 
 export type TradingAsset = {
-    id: number;
+    id: string | number;
     name: string;
     location: string;
     credits: number;
@@ -49,3 +49,6 @@ export type Stats = {
     treesPreserved: number;
     co2Offset: number;
 };
+
+export { CarbonCreditType } from "./carbonCredit"
+export { MarketplaceListingType } from "./marketplaceListing"

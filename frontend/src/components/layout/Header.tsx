@@ -35,14 +35,14 @@ const Header: React.FC = () => {
 
         {/* Navigation Buttons */}
         <div className="flex items-center gap-1">
-          {["/", "/mint", "/trading", "/verify-credits", "/my-nfts"].map((path, idx) => {
-            const labels = ["Home", "Mint NFT", "Trading", "Verify Credits", "My NFTs"];
+          {["/", "/trading", "/mint", "/verify-credits", "/my-nfts"].map((path, idx) => {
+            const labels = ["Home", "Trading", "Mint NFT", "Verify Credits", "My NFTs"];
             return (
               <button
                 key={path}
                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${isActive(path)
-                    ? "bg-teal-500 text-white shadow-md shadow-teal-500/20"
-                    : "text-gray-300 hover:text-white hover:bg-gray-800/50"
+                  ? "bg-teal-500 text-white shadow-md shadow-teal-500/20"
+                  : "text-gray-300 hover:text-white hover:bg-gray-800/50"
                   }`}
                 onClick={() => handleNavigation(path)}
               >

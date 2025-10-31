@@ -1,84 +1,107 @@
-import { Leaf, Globe, TrendingUp, Award } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { Stats } from '../../types';
-import api from '../../lib/axios'; 
+import React, { useEffect, useState } from 'react';
+import { CreditCard, Trees, CheckCircle, Cloud } from 'lucide-react';
+import { useConnection, useWallet } from '@solana/wallet-adapter-react';
+import { HomeStats, fetchHomeStats } from '../../services/homeData';
+import { AnchorProvider } from '@coral-xyz/anchor';
+import { useToast } from '../../contexts/ToastContext';
 
-// Hàm helper cho hiệu ứng đếm số
-const animateValue = (start: number, end: number, duration: number, setter: (value: number) => void) => {
-  if (start === end) {
-    setter(end);
-    return;
-  }
-  const range = end - start;
-  const steps = 60;
-  const intervalTime = duration / steps;
-  const increment = range / steps;
-  let current = start;
-
-  const timer = setInterval(() => {
-    current += increment;
-    if ((increment > 0 && current >= end) || (increment < 0 && current <= end)) {
-      clearInterval(timer);
-      setter(end);
-    } else {
-      setter(Math.floor(current));
-    }
-  }, intervalTime);
-  return timer;
+const defaultStats: HomeStats = {
+    totalCredits: 0,
+    verifiedProjects: 0,
+    treesPreserved: 0,
+    co2Offset: 0
 };
 
-export default function ImpactStats() {
-    const [stats, setStats] = useState<Stats>({
-        totalCredits: 0,
-        verifiedProjects: 0,
-        treesPreserved: 0,
-        co2Offset: 0
-    });
+const ImpactStats = () => {
+    const [stats, setStats] = useState<HomeStats>(defaultStats);
+    const { connection } = useConnection();
+    const wallet = useWallet();
+    const { showError }: any = useToast();
 
-    // BƯỚC 2: Viết lại useEffect để gọi API
     useEffect(() => {
         const fetchStats = async () => {
-          try {
-            // Gọi API backend (baseURL đã có /api rồi, nên chỉ cần /carbon-credits/stats)
-            const response = await api.get('/carbon-credits/stats');
+            try {
+                if (!connection) {
+                    throw new Error('Connection not available');
+                }
 
-            if (response.data.success) {
-              const data = response.data.data;
-              
-              // Lấy data thật từ API
-              const targetValues = {
-                  totalCredits: parseInt(data.totalMinted) || 0,
-                  verifiedProjects: parseInt(data.activeListings) || 0, // Tạm dùng activeListings
-                  treesPreserved: (parseInt(data.totalMinted) || 0) * 150, // Giả lập data
-                  co2Offset: (parseInt(data.totalMinted) || 0) * 10 // Giả lập data
-              };
-              
-              // Chạy hiệu ứng đếm
-              const timers = [
-                animateValue(0, targetValues.totalCredits, 2000, (val) => setStats(s => ({ ...s, totalCredits: val }))),
-                animateValue(0, targetValues.verifiedProjects, 2000, (val) => setStats(s => ({ ...s, verifiedProjects: val }))),
-                animateValue(0, targetValues.treesPreserved, 2000, (val) => setStats(s => ({ ...s, treesPreserved: val }))),
-                animateValue(0, targetValues.co2Offset, 2000, (val) => setStats(s => ({ ...s, co2Offset: val })))
-              ];
+                // Create provider if wallet is connected
+                const provider = wallet.connected
+                    ? new AnchorProvider(connection, wallet as any, { commitment: 'confirmed' })
+                    : null;
 
-              return () => timers.forEach(timer => timer && clearInterval(timer));
+                const newStats = await fetchHomeStats(connection, provider);
+                setStats(newStats);
+            } catch (error) {
+                console.error('Error fetching stats:', error);
+                showError('Failed to fetch impact statistics');
             }
-          } catch (error) {
-            console.error("Failed to fetch stats:", error);
-            // Có thể set giá trị mặc định nếu lỗi
-          }
         };
 
-        const cleanup = fetchStats();
-
-        return () => {
-          cleanup.then(cleanupFn => cleanupFn && cleanupFn());
-        };
-    }, []);
+        fetchStats();
+        // Update stats every 30 seconds
+        const interval = setInterval(fetchStats, 30000);
+        return () => clearInterval(interval);
+    }, [connection, wallet, showError]);
 
     return (
-        <section className="relative py-20 overflow-hidden">
-          {/* ... (UI) ... */}
-        </section>
-    )
-}
+        <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+            <div className="max-w-4xl mx-auto text-center">
+                <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
+                    Our Global Impact
+                </h2>
+                <p className="mt-3 text-xl text-gray-500 sm:mt-4">
+                    Real-time statistics showing our contribution to environmental sustainability
+                </p>
+            </div>
+            <dl className="mt-10 text-center sm:mx-auto sm:grid sm:grid-cols-4 sm:gap-8 border border-cyan-500 py-10 rounded-3xl">
+                <div className="flex flex-col">
+                    <dt className="order-2 mt-2 text-lg leading-6 font-medium text-gray-500">
+                        Total Credits
+                    </dt>
+                    <dd className="order-1 text-4xl font-extrabold text-emerald-600">
+                        <div className="flex justify-center items-center gap-2">
+                            <CreditCard className="w-8 h-8" />
+                            {stats.totalCredits.toLocaleString()}
+                        </div>
+                    </dd>
+                </div>
+                <div className="flex flex-col mt-10 sm:mt-0">
+                    <dt className="order-2 mt-2 text-lg leading-6 font-medium text-gray-500">
+                        Verified Projects
+                    </dt>
+                    <dd className="order-1 text-4xl font-extrabold text-emerald-600">
+                        <div className="flex justify-center items-center gap-2">
+                            <CheckCircle className="w-8 h-8" />
+                            {stats.verifiedProjects.toLocaleString()}
+                        </div>
+                    </dd>
+                </div>
+                <div className="flex flex-col mt-10 sm:mt-0">
+                    <dt className="order-2 mt-2 text-lg leading-6 font-medium text-gray-500">
+                        Trees Preserved
+                    </dt>
+                    <dd className="order-1 text-4xl font-extrabold text-emerald-600">
+                        <div className="flex justify-center items-center gap-2">
+                            <Trees className="w-8 h-8" />
+                            {stats.treesPreserved.toLocaleString()}
+                        </div>
+                    </dd>
+                </div>
+                <div className="flex flex-col mt-10 sm:mt-0">
+                    <dt className="order-2 mt-2 text-lg leading-6 font-medium text-gray-500">
+                        CO₂ Offset (tons)
+                    </dt>
+                    <dd className="order-1 text-4xl font-extrabold text-emerald-600">
+                        <div className="flex justify-center items-center gap-2">
+                            <Cloud className="w-8 h-8" />
+                            {stats.co2Offset.toLocaleString()}
+                        </div>
+                    </dd>
+                </div>
+            </dl>
+        </div>
+    );
+};
+
+export default ImpactStats;

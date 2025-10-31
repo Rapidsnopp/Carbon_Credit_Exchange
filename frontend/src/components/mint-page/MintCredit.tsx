@@ -1,18 +1,26 @@
-import React, { useState } from 'react';
-import { Upload, FileText, CheckCircle, Sparkles, Shield, Award, Leaf } from 'lucide-react';
-import { ProjectDetails, MintedNFT } from "../../types"; // Giữ nguyên types của bạn
+import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
+import { Upload, FileText, CheckCircle, Sparkles, Shield, Award, Leaf, AlertCircle } from 'lucide-react';
+import { ProjectDetails, MintedNFT as MintedNFTType } from "../../types";
+import { mintCarbonCredit } from '../../services/solana';
+import { generateMetadata, uploadMetadata } from '../../services/metadata';
+import { useWallet, useConnection } from '@solana/wallet-adapter-react';
+import { useToast } from '../../contexts/ToastContext';
 
-// --- IMPORTS CHO LOGIC THẬT ---
-import api from '../../lib/axios'; // Import axios instance
-import { useConnection } from '@solana/wallet-adapter-react';
-import { useAnchorWallet } from '@solana/wallet-adapter-react'; // Hook quan trọng
-import { PublicKey } from "@solana/web3.js";
-import { Metaplex, walletAdapterIdentity } from "@metaplex-foundation/js";
-// ------------------------------
-
+type DisplayMintedNFT = MintedNFTType & {
+    mint?: string;
+    signature?: string;
+    explorerUrl?: string;
+    mintExplorerUrl?: string;
+    id?: string | number;
+    tokenId?: string;
+};
 
 export default function MintCredit() {
-    // --- State cho Form (Giữ nguyên) ---
+    const { connection } = useConnection();
+    const wallet = useWallet();
+    const { addToast } = useToast();
+
+
     const [projectDetails, setProjectDetails] = useState<ProjectDetails>({
         projectName: '',
         projectLocation: '',
@@ -25,157 +33,157 @@ export default function MintCredit() {
     });
 
     const [isMinting, setIsMinting] = useState<boolean>(false);
-    const [mintedNFT, setMintedNFT] = useState<MintedNFT | null>(null);
+    const [mintedNFT, setMintedNFT] = useState<DisplayMintedNFT | null>(null);
     const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+    const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
-    // --- State cho Logic Thật ---
-    const [imageFile, setImageFile] = useState<File | null>(null); // State để giữ file thật
-    const { connection } = useConnection();
-    const anchorWallet = useAnchorWallet(); // Ví để ký giao dịch
-
-    // --- Các hàm xử lý (Cập nhật) ---
-
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value } = e.target as HTMLInputElement;
+    const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
         setProjectDetails(prev => ({
             ...prev,
             [name]: value
-        }));
+        } as unknown as ProjectDetails));
     };
 
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files && e.target.files[0];
         if (file) {
-            // 1. Lưu file thật để upload
-            setImageFile(file);
-            
-            // 2. Tạo preview (giữ nguyên logic)
+            setUploadedFile(file);
+
             const reader = new FileReader();
             reader.onloadend = () => {
-                setUploadedImage(reader.result as string);
+                const result = reader.result;
+                if (typeof result === 'string') setUploadedImage(result);
             };
             reader.readAsDataURL(file);
         }
     };
 
-    // --- HÀM MINT THẬT (Thay thế hoàn toàn logic mock) ---
-    const handleMint = async (e: React.FormEvent) => {
+    const handleMint = async (e: FormEvent) => {
         e.preventDefault();
-        
-        if (!imageFile || !anchorWallet || !connection) {
-            alert("Vui lòng kết nối ví và upload ảnh dự án!");
+        setError(null);
+
+        // Validate wallet connection
+        if (!wallet.connected || !wallet.publicKey) {
+            setError('Please connect your wallet first');
+            addToast('Please connect your wallet', 'error');
+            return;
+        }
+
+        // Validate required fields
+        if (!projectDetails.projectName || !projectDetails.creditAmount) {
+            setError('Please fill in all required fields (Project Name and Credit Amount)');
+            addToast('Missing required fields', 'error');
             return;
         }
 
         setIsMinting(true);
+
         try {
-            const payer = anchorWallet; // Ví của bạn
+            console.log('🎨 Generating metadata...');
 
-            // --- BƯỚC 1: Upload ảnh lên IPFS (qua backend) ---
-            console.log("📤 Bắt đầu upload ảnh...", imageFile);
-            const formData = new FormData();
-            formData.append('image', imageFile);
-            
-            console.log("🌐 Gọi API upload...");
-            const uploadRes = await api.post('/upload/image', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
-            
-            console.log("✅ Response từ backend:", uploadRes.data);
-            
-            if (!uploadRes.data.success) {
-                throw new Error(uploadRes.data.error || 'Upload ảnh thất bại');
-            }
-            
-            const imageUrl = uploadRes.data.imageUrl; // (vd: "ipfs://Qm...")
-            console.log("✅ Image uploaded:", imageUrl);
+            // Generate metadata
+            const metadata = generateMetadata(
+                {
+                    ...projectDetails,
+                    walletAddress: wallet.publicKey.toBase58(),
+                },
+                uploadedImage
+            );
 
-            // --- BƯỚC 2: Upload JSON metadata lên IPFS ---
-            const metadataJson = {
+            console.log('📤 Uploading metadata...');
+
+            // Upload metadata (temporary solution)
+            const { uri } = await uploadMetadata(metadata);
+
+            console.log('✅ Metadata uploaded:', uri);
+            addToast('Metadata created successfully', 'success');
+
+            // Prepare carbon data for on-chain
+            const carbonData = {
+                projectName: projectDetails.projectName,
+                projectId: (projectDetails as any).projectId ?? `CC-${Date.now()}`,
+                vintageYear: new Date().getFullYear(),
+                metricTons: Number(projectDetails.creditAmount) || 1,
+                validator: projectDetails.certificationBody || 'Self-Certified',
+                standard: projectDetails.creditStandard || 'VCS',
+                projectType: projectDetails.projectType || 'Reforestation',
+                country: projectDetails.projectLocation || 'Unknown',
+            };
+
+            console.log('🚀 Minting carbon credit NFT...');
+            addToast('Sending transaction... Please approve in your wallet', 'info');
+
+            // Mint NFT
+            const result: any = await mintCarbonCredit(
+                connection,
+                wallet,
+                carbonData,
+                uri,
+                projectDetails.projectName,
+                'CARBON'
+            );
+
+            console.log('✅ Minting successful!', result);
+
+            // Set minted NFT data
+            setMintedNFT({
+                id: result.mint,
                 name: projectDetails.projectName,
-                description: projectDetails.description,
-                image: imageUrl,
+                tokenId: result.mint,
+                mint: result.mint,
+                signature: result.signature,
+                image: uploadedImage || 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=400&q=80',
+                explorerUrl: result.explorerUrl,
+                mintExplorerUrl: result.mintExplorerUrl,
                 attributes: [
                     { trait_type: 'Location', value: projectDetails.projectLocation },
                     { trait_type: 'Type', value: projectDetails.projectType },
-                    { trait_type: 'Credits', value: projectDetails.creditAmount },
+                    { trait_type: 'Credits (tCO2e)', value: projectDetails.creditAmount },
                     { trait_type: 'Standard', value: projectDetails.creditStandard },
+                    { trait_type: 'Certification Body', value: projectDetails.certificationBody },
+                    { trait_type: 'Verification Date', value: projectDetails.verificationDate },
+                    { trait_type: 'Vintage Year', value: new Date().getFullYear().toString() },
                 ]
-            };
-            
-            console.log("📤 Upload metadata JSON...");
-            const metaUploadRes = await api.post('/upload/json', metadataJson);
-            
-            if (!metaUploadRes.data.success) {
-                throw new Error(metaUploadRes.data.error || 'Upload metadata thất bại');
-            }
-            
-            const metadataUri = metaUploadRes.data.metadataUri;
-            console.log("✅ Metadata URI:", metadataUri);
+            } as DisplayMintedNFT);
 
+            addToast('Carbon Credit NFT minted successfully! 🎉', 'success');
 
-            // --- BƯỚC 3: Mint NFT trên Solana sử dụng Metaplex ---
-            console.log("🎨 Tạo NFT với Metaplex...");
-            
-            // Tạo Metaplex instance
-            const metaplex = Metaplex.make(connection)
-                .use(walletAdapterIdentity(anchorWallet));
-
-            // Mint NFT
-            const { nft } = await metaplex.nfts().create({
-                uri: metadataUri,
-                name: projectDetails.projectName,
-                symbol: "CO2C",
-                sellerFeeBasisPoints: 500, // 5% royalty
-                creators: [
-                    {
-                        address: anchorWallet.publicKey,
-                        share: 100,
-                    }
-                ],
+            // Reset form
+            setProjectDetails({
+                projectName: '',
+                projectLocation: '',
+                projectType: '',
+                creditAmount: '',
+                creditStandard: '',
+                certificationBody: '',
+                verificationDate: '',
+                description: ''
             });
+            setUploadedImage(null);
+            setUploadedFile(null);
 
-            console.log("✅ NFT Mint address:", nft.address.toBase58());
-            const newMintAddress = nft.address.toBase58();
-
-            // --- BƯỚC 4: Lưu bản sao vào MongoDB (qua backend) ---
-            console.log("💾 Lưu vào MongoDB...");
-            await api.post('/metadata/create', {
-                mint: newMintAddress,
-                owner: anchorWallet.publicKey.toBase58(),
-                projectName: projectDetails.projectName,
-                location: { country: projectDetails.projectLocation },
-                vintageYear: new Date(projectDetails.verificationDate).getFullYear(),
-                carbonAmount: Number(projectDetails.creditAmount),
-                verificationStandard: projectDetails.creditStandard,
-                projectType: projectDetails.projectType,
-                projectDescription: projectDetails.description,
-            });
-            console.log("Saved to MongoDB");
-
-            // --- BƯỚC 5: Hiển thị kết quả (Giữ nguyên UI của bạn) ---
-            setMintedNFT({
-                id: newMintAddress, // Dùng Mint thật
-                name: projectDetails.projectName,
-                tokenId: newMintAddress, // Dùng Mint thật
-                image: uploadedImage || '...',
-                attributes: [
-                    { trait_type: 'Project Name', value: projectDetails.projectName },
-                    { trait_type: 'Location', value: projectDetails.projectLocation },
-                    { trait_type: 'Credits', value: projectDetails.creditAmount },
-                    { trait_type: 'Standard', value: projectDetails.creditStandard },
-                ]
-            });
-
-        } catch (error) {
-            console.error("Mint failed:", error);
-            alert("Mint thất bại! (Xem console log để biết chi tiết)");
+        } catch (err: any) {
+            console.error('❌ Minting failed:', err);
+            const msg = err?.message || String(err) || 'Failed to mint NFT';
+            setError(msg);
+            addToast(`Minting failed: ${msg}`, 'error');
         } finally {
             setIsMinting(false);
         }
     };
 
-    // --- PHẦN UI (Giữ nguyên 100%) ---
+    const getProjectTypeColor = (type: string) => {
+        const colors: Record<string, string> = {
+            'afforestation': 'from-green-500 to-emerald-500',
+            'reforestation': 'from-green-600 to-teal-500',
+            'renewable-energy': 'from-amber-500 to-orange-500',
+            'maritime': 'from-blue-500 to-cyan-500',
+            'other': 'from-purple-500 to-pink-500'
+        };
+        return colors[type] || 'from-gray-500 to-gray-600';
+    };
     return (
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
             {/* Minting Form - Takes 3 columns */}
@@ -201,7 +209,20 @@ export default function MintCredit() {
                                         className="hidden"
                                         id="image-upload"
                                     />
-                                    {/* ... (Toàn bộ UI Image Upload) ... */}
+                                    <label
+                                        htmlFor="image-upload"
+                                        className="flex flex-col items-center justify-center w-full h-48 bg-gray-700/30 border-2 border-dashed border-gray-600 rounded-2xl cursor-pointer hover:bg-gray-700/50 hover:border-teal-500/50 transition-all duration-300"
+                                    >
+                                        {uploadedImage ? (
+                                            <img src={uploadedImage} alt="Preview" className="w-full h-full object-cover rounded-2xl" />
+                                        ) : (
+                                            <div className="text-center">
+                                                <Upload className="w-12 h-12 text-gray-500 mx-auto mb-3" />
+                                                <p className="text-gray-400 mb-1">Click to upload project image</p>
+                                                <p className="text-gray-500 text-xs">PNG, JPG up to 10MB</p>
+                                            </div>
+                                        )}
+                                    </label>
                                 </div>
                             </div>
 
@@ -210,13 +231,18 @@ export default function MintCredit() {
 
                             <button
                                 type="submit"
-                                disabled={isMinting}
-                                className={`w-full py-4 px-6 rounded-xl font-bold text-lg transition-all duration-300 ${isMinting
+                                disabled={isMinting || !wallet.connected}
+                                className={`w-full py-4 px-6 rounded-xl font-bold text-lg transition-all duration-300 ${isMinting || !wallet.connected
                                     ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                                     : 'bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white shadow-lg shadow-teal-500/50 hover:shadow-teal-500/70 hover:transform hover:scale-[1.02]'
                                     }`}
                             >
-                                {isMinting ? (
+                                {!wallet.connected ? (
+                                    <span className="flex items-center justify-center gap-2">
+                                        <AlertCircle className="w-5 h-5" />
+                                        Connect Wallet to Mint
+                                    </span>
+                                ) : isMinting ? (
                                     <span className="flex items-center justify-center">
                                         <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" /* ... */ ></svg>
                                         Minting Your NFT...
@@ -238,18 +264,145 @@ export default function MintCredit() {
                 <div className="sticky top-24">
                     {mintedNFT ? (
                         <div className="bg-gray-800/50 backdrop-blur-sm rounded-3xl border border-gray-700/50 p-8 shadow-2xl">
-                           {/* ... (Toàn bộ UI Success) ... */}
-                           <h2 className="text-3xl font-bold text-white mb-2">Success!</h2>
-                           <img src={mintedNFT.image} alt={mintedNFT.name} />
-                           <h3 className="text-2xl font-bold text-white mb-2">{mintedNFT.name}</h3>
-                           <p className="text-gray-400 text-sm">Token ID: {mintedNFT.tokenId}</p>
-                           {/* ... (Rest of success UI) ... */}
+                            <div className="text-center mb-8">
+                                <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-500 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-green-500/50 animate-pulse">
+                                    <CheckCircle className="w-10 h-10 text-white" />
+                                </div>
+                                <h2 className="text-3xl font-bold text-white mb-2">Success!</h2>
+                                <p className="text-gray-400">Your NFT has been minted on the blockchain</p>
+                            </div>
+
+                            <div className="bg-gradient-to-br from-gray-700/50 to-gray-800/50 rounded-2xl p-6 mb-6 border border-gray-600/50">
+                                <div className="relative aspect-square bg-gray-600 rounded-xl mb-4 overflow-hidden group">
+                                    <img
+                                        src={mintedNFT.image}
+                                        alt={mintedNFT.name}
+                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                    />
+                                    <div className="absolute top-3 right-3 bg-teal-500/90 backdrop-blur-sm px-3 py-1 rounded-full">
+                                        <span className="text-white font-bold text-sm">#{mintedNFT.id}</span>
+                                    </div>
+                                </div>
+
+                                <h3 className="text-2xl font-bold text-white mb-2">{mintedNFT.name}</h3>
+                                <div className="space-y-2 mb-4">
+                                    <div className="flex items-center gap-2">
+                                        <Shield className="w-4 h-4 text-teal-400" />
+                                        <p className="text-gray-400 text-sm">Mint: {mintedNFT.mint?.slice(0, 8)}...{mintedNFT.mint?.slice(-8)}</p>
+                                    </div>
+                                    {mintedNFT.explorerUrl && (
+                                        <a
+                                            href={mintedNFT.explorerUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-teal-400 hover:text-teal-300 text-sm flex items-center gap-1"
+                                        >
+                                            View Transaction ↗
+                                        </a>
+                                    )}
+                                    {mintedNFT.mintExplorerUrl && (
+                                        <a
+                                            href={mintedNFT.mintExplorerUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-cyan-400 hover:text-cyan-300 text-sm flex items-center gap-1"
+                                        >
+                                            View NFT on Explorer ↗
+                                        </a>
+                                    )}
+                                </div>
+
+                                <div className="space-y-3 bg-gray-900/50 rounded-xl p-4">
+                                    {mintedNFT.attributes.map((attr, index) => (
+                                        <div key={index} className="flex justify-between items-center pb-2 border-b border-gray-700/50 last:border-0 last:pb-0">
+                                            <span className="text-gray-400 text-sm">{attr.trait_type}</span>
+                                            <span className="text-white font-semibold text-sm">{attr.value}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <button className="w-full py-3 px-4 bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white rounded-xl font-bold transition-all shadow-lg shadow-teal-500/30 hover:shadow-teal-500/50">
+                                    View on Marketplace
+                                </button>
+                                <button className="w-full py-3 px-4 bg-gray-700/50 hover:bg-gray-700 text-white rounded-xl font-bold transition-all border border-gray-600">
+                                    Download Certificate
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setMintedNFT(null);
+                                        setProjectDetails({
+                                            projectName: '',
+                                            projectLocation: '',
+                                            projectType: '',
+                                            creditAmount: '',
+                                            creditStandard: '',
+                                            certificationBody: '',
+                                            verificationDate: '',
+                                            description: ''
+                                        });
+                                        setUploadedImage(null);
+                                    }}
+                                    className="w-full py-3 px-4 bg-gray-800/50 hover:bg-gray-800 text-gray-300 rounded-xl font-medium transition-all border border-gray-700"
+                                >
+                                    Mint Another NFT
+                                </button>
+                            </div>
                         </div>
                     ) : (
                         <div className="bg-gray-800/50 backdrop-blur-sm rounded-3xl border border-gray-700/50 p-8 shadow-2xl">
-                            {/* ... (Toàn bộ UI Live Preview) ... */}
-                            <h2 className="text-2xl font-bold text-white">Live Preview</h2>
-                            {/* ... (Rest of preview UI) ... */}
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/50">
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-bold text-white">Live Preview</h2>
+                                    <p className="text-gray-400 text-sm">See your NFT as you create it</p>
+                                </div>
+                            </div>
+
+                            {projectDetails.projectName || projectDetails.projectType || uploadedImage ? (
+                                <div className="bg-gradient-to-br from-gray-700/50 to-gray-800/50 rounded-2xl p-6 border border-gray-600/50">
+                                    <div className={`relative aspect-square bg-gradient-to-br ${getProjectTypeColor(projectDetails.projectType)} rounded-xl mb-4 overflow-hidden flex items-center justify-center`}>
+                                        {uploadedImage ? (
+                                            <img src={uploadedImage} alt="Preview" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <Leaf className="w-24 h-24 text-white/30" />
+                                        )}
+                                    </div>
+
+                                    <h3 className="text-xl font-bold text-white mb-2">
+                                        {projectDetails.projectName || 'Your Project Name'}
+                                    </h3>
+                                    <p className="text-gray-400 text-sm mb-4">
+                                        {projectDetails.projectLocation || 'Project Location'}
+                                    </p>
+
+                                    {projectDetails.creditAmount && (
+                                        <div className="bg-gray-900/50 rounded-lg p-3 mb-3">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-gray-400 text-sm">Carbon Credits</span>
+                                                <span className="text-teal-400 font-bold">{projectDetails.creditAmount}</span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {projectDetails.creditStandard && (
+                                        <div className="inline-flex items-center gap-2 bg-teal-500/20 border border-teal-500/30 rounded-full px-4 py-2">
+                                            <Award className="w-4 h-4 text-teal-400" />
+                                            <span className="text-teal-300 text-sm font-medium">{projectDetails.creditStandard}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-16">
+                                    <div className="w-32 h-32 bg-gray-700/30 rounded-3xl flex items-center justify-center mb-6">
+                                        <FileText className="w-16 h-16 text-gray-500" />
+                                    </div>
+                                    <p className="text-gray-400 text-center mb-2">Start filling the form</p>
+                                    <p className="text-gray-500 text-sm text-center">Your NFT preview will appear here</p>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

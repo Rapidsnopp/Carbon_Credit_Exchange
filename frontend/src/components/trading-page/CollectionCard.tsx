@@ -1,10 +1,10 @@
 import React from 'react';
 // Preferred placeholder for Marketplace / Home when backend image missing
-const DEFAULT_PLACEHOLDER = 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=400&q=80';
-import placeholderUrl from '../../assets/nft-placeholder.svg?url';
 import { CollectionItem } from '../../types/collection.types';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { useNavigate } from 'react-router-dom'; // <-- BƯỚC 1: Import hook
+const DEFAULT_PLACEHOLDER = 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=400&q=80';
+const placeholderUrl = '../../assets/nft-placeholder.svg';
 
 // --- Helper Functions (Giữ nguyên) ---
 const formatPrice = (priceInLamports: string): number => {
@@ -38,7 +38,7 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({ item }) => {
   // --- BƯỚC 3: Tạo hàm xử lý click ---
   const handleViewDetails = () => {
     // Điều hướng đến trang NFTDetails với "mint address"
-    navigate(`/nft/${item.mint}`); 
+    navigate(`/nft/${item.mint}`);
   };
 
   const imageSrc = item?.metadata?.image || DEFAULT_PLACEHOLDER || placeholderUrl;
@@ -55,13 +55,13 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({ item }) => {
             // Nếu URL ảnh lỗi, fallback về DEFAULT_PLACEHOLDER sau đó tới svg placeholder
             const target = e.currentTarget as HTMLImageElement;
             if (target.src !== DEFAULT_PLACEHOLDER) target.src = DEFAULT_PLACEHOLDER;
-            else if (target.src !== placeholderUrl) target.src = placeholderUrl;
+            else target.src = placeholderUrl;
           }}
         />
       </div>
       <div className="p-4">
         {/* ... (Tags, Tên, Seller...) ... */}
-        
+
         <h3 className="font-bold text-white text-lg mb-2 truncate" title={item.metadata.name}>
           {item.metadata.name}
         </h3>
@@ -79,8 +79,8 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({ item }) => {
           </div>
 
           {/* --- BƯỚC 4: Thêm onClick vào nút --- */}
-          <button 
-            onClick={handleViewDetails} 
+          <button
+            onClick={handleViewDetails}
             className="bg-teal-500 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ..."
           >
             View Details
