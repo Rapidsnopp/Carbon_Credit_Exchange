@@ -2,6 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useConnection, useWallet } from '@solana/wallet-adapter-react';
+import { PublicKey } from '@solana/web3.js';
+import * as anchor from "@coral-xyz/anchor";
+import { TradingAsset } from "../types"
+import HowToTrade from '../components/trading-page/HowToTrade';
+import { getTradingAssets, getMarketStats } from '../constant/mockData';
+import { useToast } from '../contexts/ToastContext';
+import { buyCarbonCredit, listForSale, checkNFTOwnership, getProgram, getExchangePDA } from '../services/solana';
+import { fetchMetadata } from '../services/metaplex';
+import apiService from '../services/api';
+
 // Helper function to get category badge styling
 const getCategoryBadge = (category: string) => {
   const styles: Record<string, { bg: string; text: string; border: string; icon: string }> = {
@@ -17,16 +28,6 @@ const getCategoryBadge = (category: string) => {
 
   return styles[category] || styles['Other'];
 };
-import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { PublicKey } from '@solana/web3.js';
-import * as anchor from "@coral-xyz/anchor";
-import { TradingAsset } from "../types"
-import HowToTrade from '../components/trading-page/HowToTrade';
-import { getTradingAssets, getMarketStats } from '../constant/mockData';
-import { useToast } from '../contexts/ToastContext';
-import { buyCarbonCredit, listForSale, checkNFTOwnership, getProgram, getExchangePDA } from '../services/solana';
-import { fetchMetadata } from '../services/metaplex';
-import apiService from '../services/api';
 
 const Trading: React.FC = () => {
   // Default placeholder used when listing image is missing or fails to load
@@ -94,6 +95,9 @@ const Trading: React.FC = () => {
       // Get all listings from program
       const allListings = await program.account.listing.all();
       console.log('Found listings:', allListings.length);
+
+      // Chạy gọi ở bên backend
+      const response = await apiService.getAllListings();
 
       // Format listings and fetch metadata
       const formattedListings = await Promise.all(allListings.map(async (item: any) => {

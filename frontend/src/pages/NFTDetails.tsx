@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import apiService from '../lib/axios';
+import apiService from '../services/api';
 import { CollectionItem } from '../types/collection.types';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
@@ -55,8 +55,7 @@ const NFTDetails: React.FC = () => {
       setError(null);
       try {
         // Prefer the merged endpoint which returns on-chain + DB metadata
-        const chainRes = await apiService.get(`/carbon-credits/${mintAddress}`);
-
+        const chainRes = await apiService.getCarbonCreditByMint(mintAddress);
         if (chainRes.data && chainRes.data.success) {
           const data: ChainResponse = chainRes.data.data;
 
@@ -89,7 +88,7 @@ const NFTDetails: React.FC = () => {
         }
 
         // Fallback: try to get metadata from /api/metadata
-        const metaRes = await apiService.get(`/metadata/${mintAddress}`);
+        const metaRes = await apiService.getCarbonCreditByMint(mintAddress);
         if (metaRes.data && metaRes.data.success) {
           const metadataDoc = metaRes.data.data;
           const image = metadataDoc.metadata?.image || metadataDoc.image || '';

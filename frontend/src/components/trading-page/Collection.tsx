@@ -5,7 +5,7 @@ import { CollectionItem } from '../../types/collection.types';
 import { fetchMarketplaceListings } from '../../lib/marketplaceApi';
 
 // Import component con 
-import { CollectionCard } from './CollectionCard'; 
+import { CollectionCard } from './CollectionCard';
 
 export const Collection = () => {
   // BƯỚC 1: Khởi tạo state BẰNG DỮ LIỆU MOCK 
@@ -18,7 +18,7 @@ export const Collection = () => {
       try {
         // Gọi hàm API đã tách riêng
         const realData = await fetchMarketplaceListings();
-        
+
         // BƯỚC 3: Cập nhật state nếu thành công
         setItems(realData);
 

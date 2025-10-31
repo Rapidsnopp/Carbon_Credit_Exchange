@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Globe } from "lucide-react"
 import { getProjectCategoriesForHome } from "../../constant/mockData"
+import { Collection } from '../../components/trading-page/Collection';
 
 type TabKey = 'forest' | 'ocean' | 'renewable';
 type ProjectCard = {
