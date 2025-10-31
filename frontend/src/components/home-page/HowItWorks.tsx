@@ -8,9 +8,6 @@ export default function HowItWorks() {
                 </div>
 
                 <div className="relative max-w-5xl mx-auto">
-                    {/* Timeline Line */}
-                    <div className="hidden lg:block absolute top-1/2 left-0 right-0 h-0.5 bg-gradient-to-r from-teal-500 via-cyan-500 to-blue-500 transform -translate-y-1/2"></div>
-
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
                         <div className="relative">
                             <div className="bg-gradient-to-br from-teal-500/10 to-cyan-500/10 backdrop-blur-sm p-8 rounded-3xl border border-teal-500/30 hover:border-teal-500/50 transition-all duration-300">

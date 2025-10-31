@@ -3,7 +3,7 @@
  * Handles all HTTP requests to the backend
  */
 
-import { CONFIG } from '../config/constants';
+import { CONFIG } from "../config/constants";
 
 const API_URL = CONFIG.API_URL;
 
@@ -16,7 +16,7 @@ class ApiService {
       const url = `${API_URL}${endpoint}`;
       const response = await fetch(url, {
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           ...options.headers,
         },
         ...options,
@@ -25,7 +25,7 @@ class ApiService {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || data.error || 'API request failed');
+        throw new Error(data.message || data.error || "API request failed");
       }
 
       return data;
@@ -41,14 +41,14 @@ class ApiService {
    * Check backend health
    */
   async checkHealth() {
-    return this.request('/health');
+    return this.request("/health");
   }
 
   /**
    * Get program info
    */
   async getProgramInfo() {
-    return this.request('/api/program-info');
+    return this.request("/api/program-info");
   }
 
   /**
@@ -64,14 +64,14 @@ class ApiService {
    * Get all carbon credits
    */
   async getAllCarbonCredits() {
-    return this.request('/api/carbon-credits');
+    return this.request("/api/carbon-credits");
   }
 
   /**
    * Get carbon credit statistics
    */
   async getCarbonCreditStats() {
-    return this.request('/api/carbon-credits/stats');
+    return this.request("/api/carbon-credits/stats");
   }
 
   /**
@@ -92,8 +92,8 @@ class ApiService {
    * Verify a carbon credit NFT
    */
   async verifyCarbonCredit(mintAddress) {
-    return this.request('/api/carbon-credits/verify', {
-      method: 'POST',
+    return this.request("/api/carbon-credits/verify", {
+      method: "POST",
       body: JSON.stringify({ mint: mintAddress }), // Backend expects "mint" field
     });
   }
@@ -104,14 +104,14 @@ class ApiService {
    * Get all marketplace listings
    */
   async getAllListings() {
-    return this.request('/api/marketplace/listings');
+    return this.request("/api/marketplace/listings");
   }
 
   /**
    * Get marketplace statistics
    */
   async getMarketplaceStats() {
-    return this.request('/api/marketplace/stats');
+    return this.request("/api/marketplace/stats");
   }
 
   /**
@@ -134,8 +134,8 @@ class ApiService {
    * Get metadata by URI
    */
   async getMetadataByUri(uri) {
-    return this.request('/api/metadata/uri', {
-      method: 'POST',
+    return this.request("/api/metadata/uri", {
+      method: "POST",
       body: JSON.stringify({ uri }),
     });
   }

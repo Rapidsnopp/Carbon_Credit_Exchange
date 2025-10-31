@@ -3,10 +3,11 @@ import { WalletProvider, ToastProvider } from "./contexts";
 import Layout from "./layouts/Layout";
 import HomePage from "./pages/HomePage";
 import VerifyCredits from "./pages/VerifyCredits";
-import Trading from "./pages/Trading";
-import MintNFT from "./pages/MintNFT";
+import Trading from "./pages/Trading2";
+import MintNFT from "./pages/MintNFT.jsx";
 import NFTDetails from "./pages/NFTDetails";
 import MyNFTs from "./pages/MyNFTs";
+import APITest from "./pages/APITest";
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
               <Route path="/trading" element={<Trading />} />
               <Route path="/nft/:id" element={<NFTDetails />} />
               <Route path="/my-nfts" element={<MyNFTs />} />
+              <Route path="/test-api" element={<APITest />} />
             </Route>
           </Routes>
         </Router>

@@ -242,7 +242,7 @@ export const getProjectsByCategory = (category: ProjectCategory): NFTProject[] =
     ocean: 'Marine Conservation',
     renewable: 'Renewable Energy'
   };
-  
+
   return allNFTProjects.filter(project => project.category === categoryMap[category]);
 };
 
@@ -252,7 +252,7 @@ export const getProjectById = (id: number): NFTProject | undefined => {
 
 export const searchProjects = (query: string): NFTProject[] => {
   const lowerQuery = query.toLowerCase();
-  return allNFTProjects.filter(project => 
+  return allNFTProjects.filter(project =>
     project.name.toLowerCase().includes(lowerQuery) ||
     project.location.toLowerCase().includes(lowerQuery) ||
     project.category.toLowerCase().includes(lowerQuery)
@@ -326,7 +326,7 @@ export const getMarketStats = () => {
   const avgChange = allNFTProjects
     .filter(p => p.change !== undefined)
     .reduce((sum, p) => sum + (p.change || 0), 0) / allNFTProjects.length;
-  
+
   return {
     totalVolume: totalVolume.toFixed(1),
     change24h: parseFloat(avgChange.toFixed(1)),
@@ -355,9 +355,9 @@ export interface MintedNFT {
 
 export const getNFTById = (id: string): MintedNFT | undefined => {
   const project = allNFTProjects.find(p => p.id.toString() === id);
-  
+
   if (!project) return undefined;
-  
+
   return {
     id: project.id.toString(),
     tokenId: `0x${project.id.toString().padStart(64, '0')}`,

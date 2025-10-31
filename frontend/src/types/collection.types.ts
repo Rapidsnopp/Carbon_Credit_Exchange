@@ -7,6 +7,9 @@ export type CollectionItem = {
     name: string;
     description: string;
     image: string;
+    category?: string;
     attributes: Array<{ trait_type: string; value: string }>;
+    location?: string;
+    credits?: number;
   };
 };

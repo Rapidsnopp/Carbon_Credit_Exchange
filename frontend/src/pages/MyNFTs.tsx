@@ -31,11 +31,11 @@ const MyNFTs: React.FC = () => {
   });
   const [activeCategory, setActiveCategory] = useState<NFTCategory | 'all'>('all');
   const [loading, setLoading] = useState(true);
-  
+
   // 3. Lấy ví của người dùng từ Solana Wallet Adapter
   const { publicKey } = useWallet();
   // const anchorWallet = useAnchorWallet(); // Sẽ cần cho bước "List"
-  
+
   const navigate = useNavigate();
 
   // 4. Gọi API để lấy NFT thật khi ví thay đổi
@@ -61,12 +61,11 @@ const MyNFTs: React.FC = () => {
         const apiUrl = `/carbon-credits/wallet/${publicKey.toBase58()}`;
         console.log('📡 API Call:', apiUrl);
         const response = await api.get(apiUrl);
-        
         console.log('✅ API Response:', response.data);
         if (response.data.success) {
           const nfts = response.data.data;
           setAllNFTs(nfts);
-          
+
           // Phân loại NFT theo trạng thái
           const categorized: CategorizedNFTs = {
             minted: [],
@@ -74,7 +73,7 @@ const MyNFTs: React.FC = () => {
             purchased: [],
             retired: [],
           };
-          
+
           nfts.forEach((nft: any) => {
             // NFT đã retired
             if (nft.isRetired || nft.retirement) {
@@ -93,9 +92,9 @@ const MyNFTs: React.FC = () => {
               categorized.minted.push(nft);
             }
           });
-          
+
           setCategorizedNFTs(categorized);
-          
+
           console.log('📊 NFT Categories:', {
             total: nfts.length,
             minted: categorized.minted.length,
@@ -120,7 +119,7 @@ const MyNFTs: React.FC = () => {
 
     fetchOwnedNFTs();
   }, [publicKey]); // Chạy lại mỗi khi ví thay đổi
-  
+
   // Get NFTs to display based on active category
   const getDisplayNFTs = (): CollectionItem[] => {
     if (activeCategory === 'all') {
@@ -128,7 +127,7 @@ const MyNFTs: React.FC = () => {
     }
     return categorizedNFTs[activeCategory];
   };
-  
+
   const displayNFTs = getDisplayNFTs();
 
   // 5. Hàm xử lý "List for Sale" (Đăng bán)
@@ -140,7 +139,7 @@ const MyNFTs: React.FC = () => {
       alert("Giá không hợp lệ");
       return;
     }
-    
+
     // 2. Chuyển SOL sang Lamports
     // const priceInLamports = parseFloat(priceInSol) * LAMPORTS_PER_SOL;
 
@@ -153,9 +152,9 @@ const MyNFTs: React.FC = () => {
     //     //... truyền tất cả các account cần thiết (listing, mint, owner, ownerAta...)
     //   })
     //   .rpc();
-    
+
     alert(`TODO: Gọi smart contract để list ${nft.mint} với giá ${priceInSol} SOL`);
-    
+
     // 5. Nếu thành công, điều hướng đến trang Trading
     // navigate('/trading');
   };
@@ -189,59 +188,54 @@ const MyNFTs: React.FC = () => {
             <div className="flex flex-wrap justify-center gap-4 mb-8">
               <button
                 onClick={() => setActiveCategory('all')}
-                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
-                  activeCategory === 'all'
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${activeCategory === 'all'
                     ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg'
                     : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                }`}
+                  }`}
               >
                 <Package className="w-4 h-4" />
                 All ({allNFTs.length})
               </button>
-              
+
               <button
                 onClick={() => setActiveCategory('minted')}
-                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
-                  activeCategory === 'minted'
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${activeCategory === 'minted'
                     ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg'
                     : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                }`}
+                  }`}
               >
                 <Package className="w-4 h-4" />
                 Minted ({categorizedNFTs.minted.length})
               </button>
-              
+
               <button
                 onClick={() => setActiveCategory('listed')}
-                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
-                  activeCategory === 'listed'
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${activeCategory === 'listed'
                     ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg'
                     : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                }`}
+                  }`}
               >
                 <ShoppingCart className="w-4 h-4" />
                 Listed ({categorizedNFTs.listed.length})
               </button>
-              
+
               <button
                 onClick={() => setActiveCategory('purchased')}
-                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
-                  activeCategory === 'purchased'
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${activeCategory === 'purchased'
                     ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg'
                     : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                }`}
+                  }`}
               >
                 <CheckCircle className="w-4 h-4" />
                 Purchased ({categorizedNFTs.purchased.length})
               </button>
-              
+
               <button
                 onClick={() => setActiveCategory('retired')}
-                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
-                  activeCategory === 'retired'
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${activeCategory === 'retired'
                     ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-lg'
                     : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                }`}
+                  }`}
               >
                 <Flame className="w-4 h-4" />
                 Retired ({categorizedNFTs.retired.length})
@@ -260,7 +254,7 @@ const MyNFTs: React.FC = () => {
                 <div key={nft.mint}>
                   {/* Dùng component CollectionCard */}
                   <CollectionCard item={nft} />
-                  
+
                   {/* Status Badge */}
                   <div className="mt-2 flex items-center justify-between gap-2">
                     {nft.isRetired || nft.retirement ? (
@@ -277,19 +271,18 @@ const MyNFTs: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  
                   {/* Action Buttons */}
                   {!nft.isRetired && !nft.retirement && (
                     <div className="mt-2">
                       {nft.isListed || nft.listing ? (
-                        <button 
+                        <button
                           onClick={() => alert('TODO: Unlist NFT')}
                           className="w-full py-2.5 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white font-medium rounded-lg transition-all duration-300 text-center"
                         >
                           Unlist from Sale
                         </button>
                       ) : (
-                        <button 
+                        <button
                           onClick={() => handleListForSale(nft)}
                           className="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-medium rounded-lg transition-all duration-300 text-center"
                         >
@@ -304,7 +297,7 @@ const MyNFTs: React.FC = () => {
           ) : (
             <div className="text-center py-16">
               <h3 className="text-2xl font-bold text-white mb-2">
-                {activeCategory === 'all' 
+                {activeCategory === 'all'
                   ? 'No NFTs in your wallet'
                   : `No ${activeCategory} NFTs`
                 }
@@ -315,13 +308,13 @@ const MyNFTs: React.FC = () => {
                   : `Bạn không có NFT nào trong danh mục ${activeCategory}.`
                 }
               </p>
-              <Link 
+              <Link
                 to="/mint"
                 className="inline-block px-6 py-3 bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-medium rounded-lg hover:from-teal-600 hover:to-cyan-600 transition-all duration-300 mr-4"
               >
                 Mint NFT
               </Link>
-              <Link 
+              <Link
                 to="/trading"
                 className="inline-block px-6 py-3 bg-gray-800 text-white font-medium rounded-lg hover:bg-gray-700 transition-all duration-300"
               >

@@ -14,14 +14,14 @@ type ApiResponse = {
 export const fetchMarketplaceListings = async (): Promise<CollectionItem[]> => {
   // Dùng `api.get` thay vì `fetch`
   const response = await api.get<ApiResponse>('/marketplace/listings');
-  
+
   const result = response.data;
 
   // Logic giữ nguyên: Chỉ trả về data nếu thành công VÀ có data
   if (result.success && result.data.length > 0) {
     return result.data;
   }
-  
+
   // Ném lỗi trong mọi trường hợp khác (API lỗi, không có data)
   // Component `Collection.tsx` sẽ bắt lỗi này và giữ lại mock data
   throw new Error('No real data found or API error');
